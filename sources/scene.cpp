@@ -1,15 +1,14 @@
 #include "scene.hpp"
 
 Matrix Node::getMatrix(void) {
-  return MatrixMultiply(MatrixMultiply(MatrixScale(scale.x, scale.y, scale.z),
-                                       QuaternionToMatrix(rotation)),
+  return MatrixMultiply(MatrixInvert(QuaternionToMatrix(rotation)),
                         MatrixTranslate(position.x, position.y, position.z));
 }
 
 void Node::generateRenderBatch(Matrix parentMatrix,
                                std::vector<InstanceModel> &modelBatch,
                                std::vector<InstanceBill> &billBatch) {
-  Matrix newMatrix = MatrixMultiply(parentMatrix, getMatrix());
+  Matrix newMatrix = MatrixMultiply(getMatrix(), parentMatrix);
   if (type == NODE_TYPE_MODEL) {
     modelBatch.push_back({typeHandle, materialHandle, newMatrix});
   } else if (type == NODE_TYPE_BILLBOARD) {
@@ -21,9 +20,11 @@ void Node::generateRenderBatch(Matrix parentMatrix,
   }
 }
 
-void Node::createChildNode(Vector3 position, Quaternion rotation, Vector3 scale,
-                     short int typeHandle, short int materialHandle, NodeType type) {
-  this->children.push_back({position, rotation, scale, typeHandle, materialHandle, type, {}});
+void Node::createChildNode(Vector3 position, Quaternion rotation,
+                           short int typeHandle, short int materialHandle,
+                           NodeType type) {
+  this->children.push_back(
+      {position, rotation, typeHandle, materialHandle, type, {}});
 }
 
 void Scene::generateRenderBatch(std::vector<InstanceModel> &modelBatch,

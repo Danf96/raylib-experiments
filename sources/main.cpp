@@ -17,9 +17,10 @@ struct HeightMap {
 };
 
 Model getSkybox(const char *skyName);
-Mesh GenMeshCustomHeightmap(Image heightmap);
 
-float constexpr getGrayVal(Color c) {
+Mesh GenMeshCustomHeightmap(Image heightmap, std::vector<std::vector<float>> &heightLevels);
+
+constexpr float getGrayVal(Color c) {
   return ((float)(c.r + c.g + c.b) / 3.0f);
 }
 
@@ -49,7 +50,9 @@ int main(void) {
   // terrain
   Image discMap = LoadImage("../resources/discmap.BMP");
   Texture2D colorMap = LoadTexture("../resources/colormap.BMP");
-  Mesh terrainMesh = GenMeshCustomHeightmap(discMap);
+  std::vector<std::vector<float>> heightLevels;
+  heightLevels.resize(discMap.width, std::vector<float>(discMap.height));
+  Mesh terrainMesh = GenMeshCustomHeightmap(discMap, heightLevels);
   Material terrainMaterial = LoadMaterialDefault();
   terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = colorMap;
 
@@ -64,29 +67,38 @@ int main(void) {
 
   UnloadImage(discMap);
 
+  // cube for testing
+  Mesh cube = GenMeshCube(1, 1, 1);
+
   std::vector<Mesh *> meshList;
   std::vector<Material *> materialList;
   std::vector<Texture2D *> billboardList;
 
   meshList.push_back(&terrainMesh);
   materialList.push_back(&terrainMaterial);
+  meshList.push_back(&cube);
   billboardList.push_back(&bill);
 
   Scene myScene = Scene();
-  myScene.root.createChildNode({(-mapWidth/2.0f), 0.0f, (-mapHeight/2.0f)}, QuaternionIdentity(), {1, 1, 1}, 0, 0,
+  myScene.root.createChildNode({(-mapWidth/2.0f), 0.0f, (-mapHeight/2.0f)}, QuaternionIdentity(), 0, 0,
                                NODE_TYPE_MODEL);
-  myScene.root.createChildNode({}, QuaternionIdentity(), {1, 1, 1},
-                                           0, 0, NODE_TYPE_EMPTY);
-  myScene.root.children[1].createChildNode(
-      {1, 0, 1}, QuaternionIdentity(), {1, 1, 1}, 0, 0, NODE_TYPE_BILLBOARD);
-  myScene.root.children[1].createChildNode(
-      {0, 0, 1}, QuaternionIdentity(), {1, 1, 1}, 0, 0, NODE_TYPE_BILLBOARD);
-  myScene.root.children[1].createChildNode(
-      {1, 0, 0}, QuaternionIdentity(), {1, 1, 1}, 0, 0, NODE_TYPE_BILLBOARD);
+  auto terrainRoot = &myScene.root.children[0];
+  terrainRoot->createChildNode({mapWidth/2.0f, 30.0f, (mapHeight/2.0f)}, QuaternionIdentity(),
+                                           1, 0, NODE_TYPE_EMPTY);
+  auto spriteRoot = &terrainRoot->children[0];
+  spriteRoot->createChildNode(
+      {1, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+  spriteRoot->createChildNode(
+      {-1, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+  spriteRoot->createChildNode(
+      {0, 0, 1}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+  spriteRoot->createChildNode(
+      {0, 0, -1}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
 
-  Node *spriteRoot = &myScene.root.children[1].children[0];
+  
 
   // Vector3 ang = {0}; // model rotation
+  Quaternion rotation = QuaternionFromEuler(0, 0.05f, 0);
 
   SetTargetFPS(60);
 
@@ -99,8 +111,8 @@ int main(void) {
     // Update
     //----------------------------------------------------------------------
     // ang = Vector3Add(ang, (Vector3){0.01, 0.005, 0.0025});
-    spriteRoot->rotation = QuaternionAdd(
-        spriteRoot->rotation, QuaternionFromAxisAngle({0, 1, 0}, 0.25f));
+    // spriteRoot->position = Vector3Add(spriteRoot->position, {0, 0.0001, 0});
+    spriteRoot->rotation = QuaternionMultiply(spriteRoot->rotation, rotation);
     // model.transform = MatrixRotateXYZ(ang);
     UpdateCamera(&camera, CAMERA_PERSPECTIVE);
     std::vector<InstanceModel> modelBatch;
@@ -136,17 +148,6 @@ int main(void) {
       DrawBillboard(camera, *billboardList[job.textureID], job.position, 1.0f,
                     WHITE);
     }
-
-#if 0
-    // two circles of billboards
-    for (float a = 0; a < PI * 2; a += PI / 4) {
-      DrawBillboard(camera, bill, (Vector3){cos(a), 1, sin(a)}, 1.0f, WHITE);
-      DrawBillboard(
-          camera, bill,
-          (Vector3){cos(a - ang.x * 2) * 2, 1, sin(a - ang.x * 2) * 2}, 1.0f,
-          WHITE);
-    }
-#endif
 
     EndShaderMode();
 
@@ -225,7 +226,7 @@ Model getSkybox(const char *skyName) {
 }
 
 // Modified version of RayLib heighmap generation, will be refactored to store heightmap data outside of GPU
-Mesh GenMeshCustomHeightmap(Image heightmap) {
+Mesh GenMeshCustomHeightmap(Image heightmap, std::vector<std::vector<float>> &heightLevels) {
 
   Mesh mesh = {0};
 
@@ -275,6 +276,12 @@ Mesh GenMeshCustomHeightmap(Image heightmap) {
       mesh.vertices[vCounter + 7] =
           getGrayVal(pixels[(x + 1) + z * mapX]) * yScale;
       mesh.vertices[vCounter + 8] = (float)z;
+
+      // populate heightMap
+      heightLevels[x][z] = getGrayVal(pixels[x + z * mapX]) * yScale;
+      heightLevels[x][z + 1] = getGrayVal(pixels[x + (z + 1) * mapX]) * yScale;
+      heightLevels[x + 1][z] = getGrayVal(pixels[(x + 1) + z * mapX]) * yScale;
+      heightLevels[x + 1][z + 1] = getGrayVal(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
 
       // Another triangle - 3 vertex
       mesh.vertices[vCounter + 9] = mesh.vertices[vCounter + 6];

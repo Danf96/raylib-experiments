@@ -24,7 +24,6 @@ enum NodeType {
 struct Node {
   Vector3 position;
   Quaternion rotation;
-  Vector3 scale;
   short int typeHandle;
   short int materialHandle;
   NodeType type;
@@ -35,12 +34,12 @@ struct Node {
   void generateRenderBatch(Matrix parentMatrix,
                            std::vector<InstanceModel> &modelBatch,
                            std::vector<InstanceBill> &billBatch);
-  void createChildNode(Vector3 position, Quaternion rotation, Vector3 scale,
+  void createChildNode(Vector3 position, Quaternion rotation,
                      short int typeHandle, short int materialHandle, NodeType type);
 };
 struct Scene {
   Node root;
-  Scene() { root = Node{.rotation = QuaternionIdentity(), .scale = {1, 1, 1}, .type = NODE_TYPE_EMPTY}; }
+  Scene() { root = Node{.rotation = QuaternionIdentity(), .type = NODE_TYPE_EMPTY}; }
   void generateRenderBatch(std::vector<InstanceModel> &modelBatch,
                            std::vector<InstanceBill> &billBatch);
 };
