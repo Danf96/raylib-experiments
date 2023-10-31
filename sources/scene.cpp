@@ -13,7 +13,7 @@ void Node::generateRenderBatch(Matrix parentMatrix,
     modelBatch.push_back({typeHandle, materialHandle, newMatrix});
   } else if (type == NODE_TYPE_BILLBOARD) {
     billBatch.push_back(
-        {typeHandle, {newMatrix.m12, newMatrix.m13, newMatrix.m14}});
+        {typeHandle, Vector3Transform({}, newMatrix)});
   }
   for (auto &child : children) {
     child.generateRenderBatch(newMatrix, modelBatch, billBatch);

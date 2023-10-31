@@ -24,18 +24,14 @@ constexpr float getGrayVal(Color c) {
   return ((float)(c.r + c.g + c.b) / 3.0f);
 }
 
+Vector3 getAdjustedPosition(Vector3 &oldPos, std::vector<std::vector<float>> &heightLevels);
+
 int main(void) {
   //--------------------------------------------------------------------------
   // Initialization
   //--------------------------------------------------------------------------
   InitWindow(screenWidth, screenHeight, "raylib - demo");
 
-  // Define the camera to look into our 3d world
-  Camera camera = {0};
-  camera.position = (Vector3){0.0f, 0.5f, 0.0f};
-  camera.target = (Vector3){0.0f, 0.0f, 1.0f};
-  camera.up = (Vector3){0.0f, 1.0f, 0.0f};
-  camera.fovy = 45.0f;
 
   // textures, models, and shaders
   Texture2D bill = LoadTexture("../resources/billboard.png");
@@ -80,27 +76,36 @@ int main(void) {
   billboardList.push_back(&bill);
 
   Scene myScene = Scene();
-  myScene.root.createChildNode({(-mapWidth/2.0f), 0.0f, (-mapHeight/2.0f)}, QuaternionIdentity(), 0, 0,
+  myScene.root.createChildNode({}, QuaternionIdentity(), 0, 0,
                                NODE_TYPE_MODEL);
   auto terrainRoot = &myScene.root.children[0];
   terrainRoot->createChildNode({mapWidth/2.0f, 30.0f, (mapHeight/2.0f)}, QuaternionIdentity(),
                                            1, 0, NODE_TYPE_EMPTY);
   auto spriteRoot = &terrainRoot->children[0];
   spriteRoot->createChildNode(
-      {1, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+      {50, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+  #if 0
   spriteRoot->createChildNode(
-      {-1, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+      {-50, 0, 0}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
   spriteRoot->createChildNode(
-      {0, 0, 1}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+      {0, 0, 50}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
   spriteRoot->createChildNode(
-      {0, 0, -1}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+      {0, 0, -50}, QuaternionIdentity(), 0, 0, NODE_TYPE_BILLBOARD);
+  #endif
 
   
 
   // Vector3 ang = {0}; // model rotation
-  Quaternion rotation = QuaternionFromEuler(0, 0.05f, 0);
+  Quaternion rotation = QuaternionFromEuler(0, 0.005f, 0);
 
   SetTargetFPS(60);
+
+  // Define the camera to look into our 3d world
+  Camera camera = {0};
+  camera.position = (Vector3){mapWidth/2.0f, 30.0f, (mapHeight/2.0f)};
+  camera.target = (Vector3){0.0f, 0.0f, 1.0f};
+  camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+  camera.fovy = 45.0f;
 
   //--------------------------------------------------------------------------
   // Main game loop
@@ -145,14 +150,15 @@ int main(void) {
     BeginShaderMode(alphaDiscard);
 
     for (auto &job : billBatch) {
-      DrawBillboard(camera, *billboardList[job.textureID], job.position, 1.0f,
+      Vector3 newPos = getAdjustedPosition(job.position, heightLevels);
+      DrawBillboard(camera, *billboardList[job.textureID], newPos, 1.0f,
                     WHITE);
     }
 
     EndShaderMode();
 
     // red outer circle
-    DrawCircle3D(Vector3Zero(), 2, (Vector3){1, 0, 0}, 90, RED);
+    // DrawCircle3D(Vector3Zero(), 2, (Vector3){1, 0, 0}, 90, RED);
 
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
@@ -360,4 +366,32 @@ Mesh GenMeshCustomHeightmap(Image heightmap, std::vector<std::vector<float>> &he
   UploadMesh(&mesh, false);
 
   return mesh;
+}
+
+Vector3 getAdjustedPosition(Vector3 &oldPos, std::vector<std::vector<float>> &heightLevels) {
+    int indexX = std::floor(oldPos.x);
+    int indexZ = std::floor(oldPos.z);
+    if (indexX >= heightLevels.size() || indexZ >= heightLevels[0].size()){
+      // potentially add a runtime exception here later, we are out of bounds
+      return {};
+    }
+    Vector3 a, b, c; // three vectors constructed around oldPos
+    Vector3 barycenter; // u, v, w calculated from a, b, c
+    float answer;
+    if (oldPos.x <= 1 - oldPos.z) {
+      a = {static_cast<float>(indexX), heightLevels[indexX][indexZ], static_cast<float>(indexZ)};
+      b = {static_cast<float>(indexX + 1), heightLevels[indexX + 1][indexZ], static_cast<float>(indexZ)};
+      c = {static_cast<float>(indexX), heightLevels[indexX][indexZ + 1], static_cast<float>(indexZ + 1)};
+
+      } else {
+        a = {static_cast<float>(indexX + 1), heightLevels[indexX + 1][indexZ], static_cast<float>(indexZ)};
+        b = {static_cast<float>(indexX + 1), heightLevels[indexX + 1][indexZ + 1], static_cast<float>(indexZ + 1)};
+        c = {static_cast<float>(indexX), heightLevels[indexX][indexZ + 1], static_cast<float>(indexZ + 1)};
+    }
+    barycenter = Vector3Barycenter(oldPos, a, b, c);
+    answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
+    // height offset, should be defined elsewhere, for billboards height should be defined by the bottom of the rectangle
+    answer += 0.5;
+    
+    return {oldPos.x, answer, oldPos.z};
 }
