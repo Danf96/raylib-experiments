@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(my_demo)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
+set(CMAKE_C_STANDARD 11)
 
-set(CMAKE_CXX_CLANG_TIDY
+set(CMAKE_C_CLANG_TIDY
   clang-tidy;
   -format-style='file';
   -header-filter=${CMAKE_CURRENT_SOURCE_DIR};
@@ -27,7 +27,7 @@ add_definitions(-DSUPPORT_FILEFORMAT_BMP)
 FetchContent_MakeAvailable(raylib)
 
 # Adding our source files
-file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/sources/*.c*") # Define PROJECT_SOURCES as a list of all source files
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/sources/*.c") # Define PROJECT_SOURCES as a list of all source files
 set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/sources/") # Define PROJECT_INCLUDE to be the path to the include directory of the project
 
 # Declaring our executable
