@@ -4,38 +4,36 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include "rcamera.h"
+#include "camera.h"
 #include "scene.h"
 #include "model.h"
 
 #define screenWidth 1280
 #define screenHeight 720
 
-
-
-typedef struct MeshList {
+typedef struct MeshList
+{
   size_t capacity;
   size_t size;
   Mesh *mesh;
 } MeshList;
 
-typedef struct MaterialList {
+typedef struct MaterialList
+{
   size_t capacity;
   size_t size;
   Material *mat;
 } MaterialList;
 
-
-
 Vector2 terrainOffset = {};
 HeightMap heightMap;
 
-int main(void) {
+int main(void)
+{
   //--------------------------------------------------------------------------
   // Initialization
   //--------------------------------------------------------------------------
   InitWindow(screenWidth, screenHeight, "raylib - demo");
-
 
   // textures, models, and shaders
   Texture2D bill = LoadTexture("../resources/billboard.png");
@@ -52,14 +50,15 @@ int main(void) {
   Texture2D colorMap = LoadTexture("../resources/colormap.BMP");
   heightMap = (HeightMap){.width = discMap.width, .height = discMap.height};
   heightMap.value = MemAlloc(sizeof(*heightMap.value) * discMap.width * discMap.height);
-  if (!heightMap.value) {
+  if (!heightMap.value)
+  {
     TraceLog(LOG_ERROR, "Failed to allocate heightmap memory.");
     return EXIT_FAILURE;
   }
   Mesh terrainMesh = GenMeshCustomHeightmap(discMap, &heightMap);
   Material terrainMaterial = LoadMaterialDefault();
   terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = colorMap;
-  terrainOffset = (Vector2){.x = heightMap.width/2.0f, .y = heightMap.height/2.0f};
+  terrainOffset = (Vector2){.x = heightMap.width / 2.0f, .y = heightMap.height / 2.0f};
 
   GenTextureMipmaps(&colorMap);
   SetTextureWrap(colorMap, TEXTURE_WRAP_REPEAT);
@@ -84,31 +83,29 @@ int main(void) {
   Matrix terrMatrix = MatrixTranslate(-terrainOffset.x, 0.0f, -terrainOffset.y);
 
   // Entity List
-  
+
   EntityList entityList = CreateEntityList(5);
-  EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f,1.0f,1.0f}, .position = (Vector3){.x = terrainOffset.x, .y = 0.5f, .z = terrainOffset.y}, .materialHandle = 0, .typeHandle = 1, .type = NODE_TYPE_MODEL};
-  if (AddEntity(&entityList, &newEnt)) {
+  EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
+                                       .position = (Vector3){.x = terrainOffset.x, .y = 0.5f, .z = terrainOffset.y},
+                                       .materialHandle = 0,
+                                       .typeHandle = 1,
+                                       .type = NODE_TYPE_MODEL};
+  if (AddEntity(&entityList, &newEnt))
+  {
     return EXIT_FAILURE;
   }
-  
-  
 
-  
+  // SetTargetFPS(60);
 
 
-  SetTargetFPS(60);
+  RTSCamera camera;
+  RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0});
+  camera.ViewAngles.y = -15 * DEG2RAD;
 
-  // Define the camera to look into our 3d world
-  Camera camera = { 0 };
-  camera.position = (Vector3){ 5.0f, 4.0f, 5.0f };    // Camera position
-  camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };      // Camera looking at point
-  camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation towards target)
-  camera.fovy = 45.0f;                                // Camera field-of-view Y
-  camera.projection = CAMERA_PERSPECTIVE;             // Camera projection type
 
   float simTime = 0;
   float prevSimTime = 0;
-  float simDt = 1.f/60.f;
+  float simDt = 1.f / 60.f;
 
   //--------------------------------------------------------------------------
   // Main game loop
@@ -119,31 +116,22 @@ int main(void) {
     // Update
     //----------------------------------------------------------------------
     simTime = GetTime();
-    for (; simTime >= prevSimTime + simDt;){
+    for (; simTime >= prevSimTime + simDt;)
+    {
       const float MOVE_SPEED = 0.25f;
-      //spriteRoot->rotation = QuaternionMultiply(spriteRoot->rotation, fixedRotation);
+      // spriteRoot->rotation = QuaternionMultiply(spriteRoot->rotation, fixedRotation);
+
+      entityList.entities[0].rotation.y += 0.05f;
+      entityList.entities[0].isDirty = true;
       
-      Vector3 movement = {};
-      #if 0
-      if (IsKeyDown(KEY_W)) movement.y += MOVE_SPEED;
-      if (IsKeyDown(KEY_S)) movement.y -= MOVE_SPEED;
-      if (IsKeyDown(KEY_A)) movement.x -= MOVE_SPEED;
-      if (IsKeyDown(KEY_D)) movement.x += MOVE_SPEED;
-      CameraMoveUp(&camera, movement.y);
-      CameraMoveRight(&camera, movement.x, false);
-      if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
-        {
-            Vector2 mousePositionDelta = GetMouseDelta();
-            CameraYaw(&camera, -mousePositionDelta.x*0.0003f, true);
-            CameraPitch(&camera, -mousePositionDelta.y*0.0003f, true, true, false);
-        }
-      #endif
+      TraceLog(LOG_INFO, TextFormat("%f", camera.CameraPosition.y));
+      
       // camera.target = Player->position;
-      UpdateCamera(&camera, CAMERA_PERSPECTIVE);
+      RTSCameraUpdate(&camera);
+      RTSCameraAdjustHeight(&camera, &heightMap);
       prevSimTime += simDt;
     }
     UpdateDirtyEntities(&entityList, &heightMap);
-
 
     //----------------------------------------------------------------------
     // Draw
@@ -152,28 +140,31 @@ int main(void) {
 
     ClearBackground(RAYWHITE);
 
-    BeginMode3D(camera);
+    RTSCameraBeginMode3D(&camera);
 
     // Draw Terrain
     DrawMesh(meshList.mesh[0], matList.mat[0], terrMatrix);
 
-    for (size_t i = 0; i < entityList.size; i++) {
+    for (size_t i = 0; i < entityList.size; i++)
+    {
       Entity ent = entityList.entities[i];
-      if (ent.type == NODE_TYPE_MODEL) {
+      if (ent.type == NODE_TYPE_MODEL)
+      {
         DrawMesh(meshList.mesh[ent.typeHandle], matList.mat[ent.materialHandle], ent.worldMatrix);
       }
     }
-    
-    
+
+    DrawSphere(camera.CameraPosition, 0.25f, RED);
+
     BeginShaderMode(alphaDiscard);
-    #if 0
+#if 0
 
     for (auto &job : billBatch) {
       Vector3 newPos = getAdjustedPosition(job.position, heightLevels);
       DrawBillboard(camera, *billboardList[job.textureID], newPos, 1.0f,
                     WHITE);
     }
-    #endif
+#endif
 
     EndShaderMode();
 
@@ -182,10 +173,10 @@ int main(void) {
 
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
-
-    EndMode3D();
+    
+    RTSCameraEndMode3D();
     DrawFPS(10, 10);
-    DrawText(TextFormat("%.4f\n%.4f\n%05.4f", camera.position.x + terrainOffset.x, camera.position.y, camera.position.z + terrainOffset.y), 10, 30, 20, WHITE);
+    DrawText(TextFormat("%.4f\n%.4f\n%05.4f", camera.CameraPosition.x + terrainOffset.x, camera.CameraPosition.y, camera.CameraPosition.z + terrainOffset.y), 10, 30, 20, WHITE);
 
     EndDrawing();
   }
@@ -198,10 +189,12 @@ int main(void) {
   UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
   UnloadModel(skybox);
 
-  for (size_t i = 0; i < meshList.size; i++) {
+  for (size_t i = 0; i < meshList.size; i++)
+  {
     UnloadMesh(meshList.mesh[i]);
   }
-  for (size_t i = 0; i < matList.size; i++) {
+  for (size_t i = 0; i < matList.size; i++)
+  {
     UnloadMaterial(matList.mat[i]);
   }
 
@@ -215,7 +208,3 @@ int main(void) {
 
   return 0;
 }
-
-
-
-
