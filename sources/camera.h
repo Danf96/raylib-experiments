@@ -33,7 +33,6 @@ typedef struct
   bool UseMouse;
   int UseMouseButton;
 
-  // potentially disabled
   float MouseSensitivity;
 
   float MinimumViewY;

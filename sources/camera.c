@@ -130,14 +130,16 @@ void RTSCameraUpdate(RTSCamera *camera)
 
   bool showCursor = !camera->UseMouse || camera->UseMouseButton >= 0;
 
-  if (IsWindowFocused() != camera->Focused && !showCursor)
+  if (IsWindowFocused())
   {
-    camera->Focused = IsWindowFocused();
-    // will remove statements below when implementing rts cam
-    if (camera->Focused)
-      DisableCursor();
+    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
+    {
+      HideCursor();
+    }
     else
-      EnableCursor();
+    {
+      ShowCursor();
+    }
   }
 
   Vector2 mousePositionDelta = GetMouseDelta();
@@ -155,31 +157,37 @@ void RTSCameraUpdate(RTSCamera *camera)
   float pivotHeadingRotation = GetSpeedForAxis(camera, ROTATE_RIGHT, camera->RotationSpeed.x) - GetSpeedForAxis(camera, ROTATE_LEFT, camera->RotationSpeed.x);
   float pivotPitchRotation = GetSpeedForAxis(camera, ROTATE_UP, camera->RotationSpeed.y) - GetSpeedForAxis(camera, ROTATE_DOWN, camera->RotationSpeed.y);
 
-  if (pivotHeadingRotation) camera->ViewAngles.x -= pivotHeadingRotation * DEG2RAD;
-  else if (useMouse && camera->Focused) camera->ViewAngles.x -= (mousePositionDelta.x / camera->MouseSensitivity);
+  if (pivotHeadingRotation)
+    camera->ViewAngles.x -= pivotHeadingRotation * DEG2RAD;
+  else if (useMouse && camera->Focused)
+    camera->ViewAngles.x -= (mousePositionDelta.x / camera->MouseSensitivity);
 
-  if (pivotPitchRotation) camera->ViewAngles.y += pivotPitchRotation * DEG2RAD;
-  else if (useMouse && camera->Focused) camera->ViewAngles.y += (mousePositionDelta.y / -camera->MouseSensitivity);
+  if (pivotPitchRotation)
+    camera->ViewAngles.y += pivotPitchRotation * DEG2RAD;
+  else if (useMouse && camera->Focused)
+    camera->ViewAngles.y += (mousePositionDelta.y / -camera->MouseSensitivity);
 
   // Clamp view angles
-  if (camera->ViewAngles.y < camera->MinimumViewY * DEG2RAD) camera->ViewAngles.y = camera->MinimumViewY * DEG2RAD;
-  else if (camera->ViewAngles.y > camera->MaximumViewY * DEG2RAD) camera->ViewAngles.y = camera->MaximumViewY * DEG2RAD;
+  if (camera->ViewAngles.y < camera->MinimumViewY * DEG2RAD)
+    camera->ViewAngles.y = camera->MinimumViewY * DEG2RAD;
+  else if (camera->ViewAngles.y > camera->MaximumViewY * DEG2RAD)
+    camera->ViewAngles.y = camera->MaximumViewY * DEG2RAD;
 
   Vector3 moveVec = {0};
   moveVec.x = direction[MOVE_RIGHT] - direction[MOVE_LEFT];
   moveVec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
-
   // Update zoom
   camera->CameraPullbackDistance += GetMouseWheelMove() + (direction[MOVE_UP] - direction[MOVE_DOWN]);
-  if (camera->CameraPullbackDistance < 1) camera->CameraPullbackDistance = 1;
+  if (camera->CameraPullbackDistance < 1)
+    camera->CameraPullbackDistance = 1;
 
   Vector3 camPos = {.z = camera->CameraPullbackDistance};
 
   Matrix tiltMat = MatrixRotateX(camera->ViewAngles.y);
   Matrix rotMat = MatrixRotateY(camera->ViewAngles.x);
   Matrix mat = MatrixMultiply(tiltMat, rotMat);
-  
+
   camPos = Vector3Transform(camPos, mat);
   moveVec = Vector3Transform(moveVec, rotMat);
 
@@ -187,21 +195,24 @@ void RTSCameraUpdate(RTSCamera *camera)
 
   camera->ViewCamera.target = camera->CameraPosition;
   camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos); // offsets camera from target
-
 }
 
-static void SetupCamera(RTSCamera *camera, float aspect) {
+static void SetupCamera(RTSCamera *camera, float aspect)
+{
   rlDrawRenderBatchActive();
   rlMatrixMode(RL_PROJECTION);
   rlPushMatrix();
   rlLoadIdentity();
 
-  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE) {
+  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE)
+  {
     double top = RL_CULL_DISTANCE_NEAR * tan(camera->ViewCamera.fovy * 0.5 * DEG2RAD);
     double right = top * aspect;
 
     rlFrustum(-right, right, -top, top, camera->NearPlane, camera->FarPlane);
-  } else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC) {
+  }
+  else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC)
+  {
     double top = camera->ViewCamera.fovy / 2.0;
     double right = top * aspect;
 
@@ -218,18 +229,22 @@ static void SetupCamera(RTSCamera *camera, float aspect) {
   rlEnableDepthTest();
 }
 
-void RTSCameraBeginMode3D(RTSCamera *camera) {
-  if (!camera) return;
+void RTSCameraBeginMode3D(RTSCamera *camera)
+{
+  if (!camera)
+    return;
 
   float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
-  SetupCamera(camera,aspect);
+  SetupCamera(camera, aspect);
 }
 
-void RTSCameraEndMode3D(void) {
+void RTSCameraEndMode3D(void)
+{
   EndMode3D();
 }
 
-void RTSCameraAdjustHeight(RTSCamera *camera, HeightMap *heightMap) {
+void RTSCameraAdjustHeight(RTSCamera *camera, HeightMap *heightMap)
+{
   Vector3 oldPos = RTSCameraGetPosition(camera);
   RTSCameraSetPosition(camera, (Vector3){oldPos.x, GetAdjustedPosition(Vector3Add(oldPos, (Vector3){heightMap->width / 2.0f, 0, heightMap->height / 2.0f}), heightMap), oldPos.z});
 }

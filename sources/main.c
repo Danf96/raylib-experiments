@@ -25,7 +25,7 @@ typedef struct MaterialList
   Material *mat;
 } MaterialList;
 
-Vector2 terrainOffset = {};
+Vector2 terrainOffset = {0};
 HeightMap heightMap;
 
 int main(void)
@@ -95,7 +95,7 @@ int main(void)
     return EXIT_FAILURE;
   }
 
-  // SetTargetFPS(60);
+  SetTargetFPS(30);
 
 
   RTSCamera camera;
@@ -103,8 +103,7 @@ int main(void)
   camera.ViewAngles.y = -15 * DEG2RAD;
 
 
-  float simTime = 0;
-  float prevSimTime = 0;
+  float simAccumulator = 0;
   float simDt = 1.f / 60.f;
 
   //--------------------------------------------------------------------------
@@ -115,24 +114,14 @@ int main(void)
     //----------------------------------------------------------------------
     // Update
     //----------------------------------------------------------------------
-    simTime = GetTime();
-    for (; simTime >= prevSimTime + simDt;)
-    {
-      const float MOVE_SPEED = 0.25f;
-      // spriteRoot->rotation = QuaternionMultiply(spriteRoot->rotation, fixedRotation);
-
-      entityList.entities[0].rotation.y += 0.05f;
-      entityList.entities[0].isDirty = true;
-      
-      TraceLog(LOG_INFO, TextFormat("%f", camera.CameraPosition.y));
-      
-      // camera.target = Player->position;
-      RTSCameraUpdate(&camera);
+    RTSCameraUpdate(&camera);
+    simAccumulator += GetFrameTime();
+    while (simAccumulator >= simDt)
+    {  
       RTSCameraAdjustHeight(&camera, &heightMap);
-      prevSimTime += simDt;
+      simAccumulator -= simDt;
     }
     UpdateDirtyEntities(&entityList, &heightMap);
-
     //----------------------------------------------------------------------
     // Draw
     //----------------------------------------------------------------------
