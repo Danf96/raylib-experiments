@@ -1,5 +1,4 @@
 #include "scene.h"
-#include "model.h"
 
 static size_t GLOBAL_ID = 0;
 
@@ -43,7 +42,7 @@ EntityList CreateEntityList(size_t capacity)
   return newList;
 }
 
-void UpdateDirtyEntities(EntityList *entityList, HeightMap *heightMap)
+void UpdateDirtyEntities(EntityList *entityList, TerrainMap *terrainMap)
 {
   for (size_t i = 0; i < entityList->size; i++)
   {
@@ -51,9 +50,9 @@ void UpdateDirtyEntities(EntityList *entityList, HeightMap *heightMap)
     {
       Entity *dirtyEnt = &entityList->entities[i];
       Vector3 adjustedPos =
-          (Vector3){.x = dirtyEnt->position.x - terrainOffset.x,
-                    .z = dirtyEnt->position.z - terrainOffset.y,
-                    .y = dirtyEnt->position.y + GetAdjustedPosition(dirtyEnt->position, heightMap)};
+          (Vector3){.x = dirtyEnt->position.x,
+                    .z = dirtyEnt->position.z,
+                    .y = dirtyEnt->position.y + GetAdjustedHeight(dirtyEnt->position, terrainMap)};
       dirtyEnt->worldMatrix = MatrixMultiply(
           MatrixRotateXYZ(dirtyEnt->rotation),
           MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),

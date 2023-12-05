@@ -2,7 +2,7 @@
 
 #include "raylib.h"
 #include "raymath.h"
-#include "model.h"
+#include "terrain.h"
 // Using Jeff M's Raylib extras camera
 // https://github.com/raylib-extras/extras-c/tree/main/cameras
 typedef enum
@@ -61,16 +61,16 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position);
 
 void RTSCameraUseMouse(RTSCamera *camera, bool useMouse, int button);
 
-Vector3 RTSCameraGetPosition(RTSCamera *camera);
+Vector3 RTSCameraGetWorldPosition(RTSCamera *camera);
+
+Vector3 RTSCameraGetTerrainPosition(RTSCamera *camera);
 
 void RTSCameraSetPosition(RTSCamera *camera, Vector3 position);
 
 Ray RTSCameraGetViewRay(RTSCamera *camera);
 
-void RTSCameraUpdate(RTSCamera *camera);
+void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap);
 
 void RTSCameraBeginMode3D(RTSCamera *camera);
 
 void RTSCameraEndMode3D(void);
-
-void RTSCameraAdjustHeight(RTSCamera *camera, HeightMap *heightMap);

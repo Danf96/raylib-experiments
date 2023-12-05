@@ -1,6 +1,6 @@
-#include "model.h"
+#include "terrain.h"
 // Modified version of RayLib heighmap generation
-Mesh GenMeshCustomHeightmap(Image heightImage, HeightMap *heightMap) {
+Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
   
   #define GRAY_VALUE(c) ((float)(c.r + c.g + c.b)/3.0f)
 
@@ -54,10 +54,10 @@ Mesh GenMeshCustomHeightmap(Image heightImage, HeightMap *heightMap) {
       mesh.vertices[vCounter + 8] = (float)z;
 
       // populate heightMap
-      heightMap->value[x * heightMap->width + z] = GRAY_VALUE(pixels[x + z * mapX]) * yScale;
-      heightMap->value[x * heightMap->width + (z + 1)] = GRAY_VALUE(pixels[x + (z + 1) * mapX]) * yScale;
-      heightMap->value[(x + 1) * heightMap->width + z] = GRAY_VALUE(pixels[(x + 1) + z * mapX]) * yScale;
-      heightMap->value[(x + 1) * heightMap->width + (z + 1)] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
+      terrainMap->value[x * terrainMap->maxWidth + z] = GRAY_VALUE(pixels[x + z * mapX]) * yScale;
+      terrainMap->value[x * terrainMap->maxWidth + (z + 1)] = GRAY_VALUE(pixels[x + (z + 1) * mapX]) * yScale;
+      terrainMap->value[(x + 1) * terrainMap->maxWidth + z] = GRAY_VALUE(pixels[(x + 1) + z * mapX]) * yScale;
+      terrainMap->value[(x + 1) * terrainMap->maxWidth + (z + 1)] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
 
       // Another triangle - 3 vertex
       mesh.vertices[vCounter + 9] = mesh.vertices[vCounter + 6];
@@ -138,66 +138,32 @@ Mesh GenMeshCustomHeightmap(Image heightImage, HeightMap *heightMap) {
   return mesh;
 }
 
-Model GetSkybox(const char *skyName) {
-  // a 3D model
-  Mesh cube = GenMeshCube(-1.0f, -1.0f, -1.0f);
-
-  Model skybox = LoadModelFromMesh(cube);
-  skybox.materials[0].shader =
-      LoadShader("../shaders/skybox.vs", "../shaders/skybox.fs");
-  {
-    int arr[1] = {MATERIAL_MAP_CUBEMAP};
-    SetShaderValue(
-        skybox.materials[0].shader,
-        GetShaderLocation(skybox.materials[0].shader, "environmentMap"), arr,
-        SHADER_UNIFORM_INT);
-    arr[0] = 0;
-    SetShaderValue(skybox.materials[0].shader,
-                   GetShaderLocation(skybox.materials[0].shader, "doGamma"),
-                   arr, SHADER_UNIFORM_INT);
-  }
-
-  // Skybox generation, refactor later to take variations of input string_front,
-  // _back, etc
-  Image img = LoadImage(skyName);
-  Image faces = {0}; // Vertical column image
-  int size = img.width;
-  faces = GenImageColor(size, size * 6, MAGENTA);
-  ImageFormat(&faces, img.format);
-  for (int i = 0; i < 6; i++) {
-    Rectangle srcRec = (Rectangle){0, 0, size, size};
-    Rectangle dstRec = (Rectangle){0, (float)size * (float)i,
-                     size, size};
-    ImageDraw(&faces, img, srcRec, dstRec, WHITE);
-  }
-  skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = LoadTextureCubemap(
-      faces, CUBEMAP_LAYOUT_AUTO_DETECT); // CUBEMAP_LAYOUT_PANORAMA
-  UnloadImage(img);
-  UnloadImage(faces);
-  return skybox;
+Vector3 WorldXZToTerrain(Vector3 worldPos, TerrainMap *terrainMap) {
+  return (Vector3){.x = worldPos.x + (terrainMap->maxWidth / 2.0f), .y = worldPos.y, .z = worldPos.z + (terrainMap->maxHeight / 2.0f)};
 }
 
-float GetAdjustedPosition(Vector3 oldPos, HeightMap *heightMap) {
-    int indexX = floor(oldPos.x);
-    int indexZ = floor(oldPos.z);
-    if (indexX >= heightMap->width || indexZ >= heightMap->height){
+float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap) {
+    Vector3 terrainPos = WorldXZToTerrain(worldPos, terrainMap);
+    int indexX = floor(terrainPos.x);
+    int indexZ = floor(terrainPos.z);
+    if (indexX >= terrainMap->maxWidth || indexZ >= terrainMap->maxHeight){
       // we are out of bounds
       return 0.0f;
     }
     Vector3 a, b, c; // three vectors constructed around oldPos
     Vector3 barycenter; // u, v, w calculated from a, b, c
     float answer;
-    if (oldPos.x <= 1 - oldPos.z) {
-      a = (Vector3){indexX, heightMap->value[indexX * heightMap->width + indexZ], indexZ};
-      b = (Vector3){indexX + 1, heightMap->value[(indexX + 1) * heightMap->width + indexZ], indexZ};
-      c = (Vector3){indexX, heightMap->value[indexX * heightMap->width + (indexZ + 1)], indexZ + 1};
+    if (terrainPos.x <= 1 - terrainPos.z) {
+      a = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], indexZ}; // maxWidth used as a stride offset
+      b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
+      c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
 
       } else {
-        a = (Vector3){indexX + 1, heightMap->value[(indexX + 1) * heightMap->width + indexZ], indexZ};
-        b = (Vector3){indexX + 1, heightMap->value[(indexX + 1) * heightMap->width + (indexZ + 1)], indexZ + 1};
-        c = (Vector3){indexX, heightMap->value[indexX * heightMap->width + (indexZ + 1)], indexZ + 1};
+        a = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
+        b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+        c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
     }
-    barycenter = Vector3Barycenter(oldPos, a, b, c);
+    barycenter = Vector3Barycenter(terrainPos, a, b, c);
     answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
     
     return answer;

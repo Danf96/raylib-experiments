@@ -6,7 +6,8 @@
 #include "rlgl.h"
 #include "camera.h"
 #include "scene.h"
-#include "model.h"
+#include "terrain.h"
+#include "skybox.h"
 
 #define screenWidth 1280
 #define screenHeight 720
@@ -26,7 +27,7 @@ typedef struct MaterialList
 } MaterialList;
 
 Vector2 terrainOffset = {0};
-HeightMap heightMap;
+TerrainMap terrainMap = {0};
 
 int main(void)
 {
@@ -48,17 +49,17 @@ int main(void)
   // terrain
   Image discMap = LoadImage("../resources/discmap.BMP");
   Texture2D colorMap = LoadTexture("../resources/colormap.BMP");
-  heightMap = (HeightMap){.width = discMap.width, .height = discMap.height};
-  heightMap.value = MemAlloc(sizeof(*heightMap.value) * discMap.width * discMap.height);
-  if (!heightMap.value)
+  terrainMap = (TerrainMap){.maxWidth = discMap.width, .maxHeight = discMap.height};
+  terrainMap.value = MemAlloc(sizeof(*terrainMap.value) * discMap.width * discMap.height);
+  if (!terrainMap.value)
   {
     TraceLog(LOG_ERROR, "Failed to allocate heightmap memory.");
     return EXIT_FAILURE;
   }
-  Mesh terrainMesh = GenMeshCustomHeightmap(discMap, &heightMap);
+  Mesh terrainMesh = GenMeshCustomHeightmap(discMap, &terrainMap);
   Material terrainMaterial = LoadMaterialDefault();
   terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = colorMap;
-  terrainOffset = (Vector2){.x = heightMap.width / 2.0f, .y = heightMap.height / 2.0f};
+  terrainOffset = (Vector2){.x = terrainMap.maxWidth / 2.0f, .y = terrainMap.maxHeight / 2.0f};
 
   GenTextureMipmaps(&colorMap);
   SetTextureWrap(colorMap, TEXTURE_WRAP_REPEAT);
@@ -80,22 +81,22 @@ int main(void)
   matList.mat[0] = terrainMaterial;
 
   // Terrain Matrix;
-  Matrix terrMatrix = MatrixTranslate(-terrainOffset.x, 0.0f, -terrainOffset.y);
+  Matrix terrMatrix = MatrixTranslate(-(terrainMap.maxWidth / 2.0f), 0.0f, -(terrainMap.maxHeight / 2.0f));
 
   // Entity List
 
   EntityList entityList = CreateEntityList(5);
   EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
-                                       .position = (Vector3){.x = terrainOffset.x, .y = 0.5f, .z = terrainOffset.y},
+                                       .position = (Vector3){.x = 0, .y = 0.5f, .z = 0},
                                        .materialHandle = 0,
                                        .typeHandle = 1,
-                                       .type = NODE_TYPE_MODEL};
+                                       .type = ENT_TYPE_ACTOR};
   if (AddEntity(&entityList, &newEnt))
   {
     return EXIT_FAILURE;
   }
 
-  SetTargetFPS(30);
+  SetTargetFPS(200);
 
 
   RTSCamera camera;
@@ -106,6 +107,9 @@ int main(void)
   float simAccumulator = 0;
   float simDt = 1.f / 60.f;
 
+  Ray mRay = {};
+  bool isClicked = false;
+
   //--------------------------------------------------------------------------
   // Main game loop
   //--------------------------------------------------------------------------
@@ -114,14 +118,21 @@ int main(void)
     //----------------------------------------------------------------------
     // Update
     //----------------------------------------------------------------------
-    RTSCameraUpdate(&camera);
+    RTSCameraUpdate(&camera, &terrainMap);
     simAccumulator += GetFrameTime();
     while (simAccumulator >= simDt)
     {  
-      RTSCameraAdjustHeight(&camera, &heightMap);
+      UpdateDirtyEntities(&entityList, &terrainMap);
       simAccumulator -= simDt;
     }
-    UpdateDirtyEntities(&entityList, &heightMap);
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
+    {
+      mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
+      isClicked = true;
+      
+    }
+    
     //----------------------------------------------------------------------
     // Draw
     //----------------------------------------------------------------------
@@ -137,14 +148,19 @@ int main(void)
     for (size_t i = 0; i < entityList.size; i++)
     {
       Entity ent = entityList.entities[i];
-      if (ent.type == NODE_TYPE_MODEL)
+      if (ent.type == ENT_TYPE_ACTOR)
       {
         DrawMesh(meshList.mesh[ent.typeHandle], matList.mat[ent.materialHandle], ent.worldMatrix);
       }
     }
 
     DrawSphere(camera.CameraPosition, 0.25f, RED);
-
+    if (isClicked)
+    {
+      DrawRay(mRay, RED);
+      TraceLog(LOG_INFO, TextFormat("pos: %f, %f, %f", mRay.position.x, mRay.position.y, mRay.position.z));
+      TraceLog(LOG_INFO, TextFormat("dir: %f, %f, %f", mRay.direction.x, mRay.direction.y, mRay.direction.z));
+    }
     BeginShaderMode(alphaDiscard);
 #if 0
 

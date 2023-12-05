@@ -75,6 +75,7 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "csignal": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "camera.h": "c"
     }
 }

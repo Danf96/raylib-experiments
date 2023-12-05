@@ -92,7 +92,7 @@ Vector3 RTSCameraGetPosition(RTSCamera *camera)
 
 void RTSCameraSetPosition(RTSCamera *camera, Vector3 position)
 {
-  // will need to harmonize with terrain coordinates
+  // uses world coordinates
   camera->CameraPosition = position;
 }
 
@@ -120,7 +120,7 @@ static float GetSpeedForAxis(RTSCamera *camera, RTSCameraControls axis, float sp
   return 0.0f;
 }
 
-void RTSCameraUpdate(RTSCamera *camera)
+void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 {
   if (!camera)
     return;
@@ -132,6 +132,14 @@ void RTSCameraUpdate(RTSCamera *camera)
 
   if (IsWindowFocused())
   {
+    // Mouse Input handling
+    #if 0
+    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) 
+    {
+      Vector2 mousePos = GetMousePosition();
+      Ray mRay = GetMouseRay(mousePos, camera->ViewCamera);
+    }
+    #endif
     if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
     {
       HideCursor();
@@ -141,6 +149,8 @@ void RTSCameraUpdate(RTSCamera *camera)
       ShowCursor();
     }
   }
+
+  
 
   Vector2 mousePositionDelta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
@@ -193,6 +203,8 @@ void RTSCameraUpdate(RTSCamera *camera)
 
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
 
+  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
+
   camera->ViewCamera.target = camera->CameraPosition;
   camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos); // offsets camera from target
 }
@@ -241,10 +253,4 @@ void RTSCameraBeginMode3D(RTSCamera *camera)
 void RTSCameraEndMode3D(void)
 {
   EndMode3D();
-}
-
-void RTSCameraAdjustHeight(RTSCamera *camera, HeightMap *heightMap)
-{
-  Vector3 oldPos = RTSCameraGetPosition(camera);
-  RTSCameraSetPosition(camera, (Vector3){oldPos.x, GetAdjustedPosition(Vector3Add(oldPos, (Vector3){heightMap->width / 2.0f, 0, heightMap->height / 2.0f}), heightMap), oldPos.z});
 }

@@ -6,15 +6,13 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#include "model.h"
+#include "terrain.h"
 
 
 
 typedef enum {
-  NODE_TYPE_EMPTY,
-  NODE_TYPE_MODEL,
-  NODE_TYPE_BILLBOARD,
-  NODE_TYPE_LIGHT,
+  ENT_TYPE_EMPTY = 0,
+  ENT_TYPE_ACTOR,
 } EntityType;
 
 typedef struct {
@@ -51,5 +49,5 @@ extern Vector2 terrainOffset;
 int AddEntity(EntityList *entityList, EntityCreate *entityCreate);
 
 EntityList CreateEntityList(size_t capacity);
-void UpdateDirtyEntities(EntityList *entityList, HeightMap *heightMap);
+void UpdateDirtyEntities(EntityList *entityList, TerrainMap *terrainMap);
 
