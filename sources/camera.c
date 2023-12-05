@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include "camera.h"
 #include "raylib.h"
@@ -130,42 +130,43 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   bool showCursor = !camera->UseMouse || camera->UseMouseButton >= 0;
 
-  if (IsWindowFocused())
-  {
-    // Mouse Input handling
-    #if 0
+  if (IsWindowFocused()) {
+// Mouse Input handling
+#if 0
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) 
     {
       Vector2 mousePos = GetMousePosition();
       Ray mRay = GetMouseRay(mousePos, camera->ViewCamera);
     }
-    #endif
-    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
-    {
+#endif
+    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
       HideCursor();
-    }
-    else
-    {
+    } else {
       ShowCursor();
     }
   }
 
-  
-
   Vector2 mousePositionDelta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
 
-  float direction[MOVE_DOWN + 1] = {-GetSpeedForAxis(camera, MOVE_FRONT, camera->MoveSpeed.z),
-                                    -GetSpeedForAxis(camera, MOVE_BACK, camera->MoveSpeed.z),
-                                    GetSpeedForAxis(camera, MOVE_RIGHT, camera->MoveSpeed.x),
-                                    GetSpeedForAxis(camera, MOVE_LEFT, camera->MoveSpeed.x),
-                                    GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
-                                    GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
+  float direction[MOVE_DOWN + 1] = {
+      -GetSpeedForAxis(camera, MOVE_FRONT, camera->MoveSpeed.z),
+      -GetSpeedForAxis(camera, MOVE_BACK, camera->MoveSpeed.z),
+      GetSpeedForAxis(camera, MOVE_RIGHT, camera->MoveSpeed.x),
+      GetSpeedForAxis(camera, MOVE_LEFT, camera->MoveSpeed.x),
+      GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
+      GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
 
-  bool useMouse = camera->UseMouse && (camera->UseMouseButton < 0 || IsMouseButtonDown(camera->UseMouseButton));
+  bool useMouse =
+      camera->UseMouse &&
+      (camera->UseMouseButton < 0 || IsMouseButtonDown(camera->UseMouseButton));
 
-  float pivotHeadingRotation = GetSpeedForAxis(camera, ROTATE_RIGHT, camera->RotationSpeed.x) - GetSpeedForAxis(camera, ROTATE_LEFT, camera->RotationSpeed.x);
-  float pivotPitchRotation = GetSpeedForAxis(camera, ROTATE_UP, camera->RotationSpeed.y) - GetSpeedForAxis(camera, ROTATE_DOWN, camera->RotationSpeed.y);
+  float pivotHeadingRotation =
+      GetSpeedForAxis(camera, ROTATE_RIGHT, camera->RotationSpeed.x) -
+      GetSpeedForAxis(camera, ROTATE_LEFT, camera->RotationSpeed.x);
+  float pivotPitchRotation =
+      GetSpeedForAxis(camera, ROTATE_UP, camera->RotationSpeed.y) -
+      GetSpeedForAxis(camera, ROTATE_DOWN, camera->RotationSpeed.y);
 
   if (pivotHeadingRotation)
     camera->ViewAngles.x -= pivotHeadingRotation * DEG2RAD;
@@ -188,7 +189,8 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
   moveVec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
   // Update zoom
-  camera->CameraPullbackDistance += GetMouseWheelMove() + (direction[MOVE_UP] - direction[MOVE_DOWN]);
+  camera->CameraPullbackDistance +=
+      GetMouseWheelMove() + (direction[MOVE_UP] - direction[MOVE_DOWN]);
   if (camera->CameraPullbackDistance < 1)
     camera->CameraPullbackDistance = 1;
 
@@ -203,28 +205,27 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
 
-  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
+  camera->CameraPosition.y =
+      GetAdjustedHeight(camera->CameraPosition, terrainMap);
 
   camera->ViewCamera.target = camera->CameraPosition;
-  camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos); // offsets camera from target
+  camera->ViewCamera.position =
+      Vector3Add(camera->CameraPosition, camPos);  // offsets camera from target
 }
 
-static void SetupCamera(RTSCamera *camera, float aspect)
-{
+static void SetupCamera(RTSCamera* camera, float aspect) {
   rlDrawRenderBatchActive();
   rlMatrixMode(RL_PROJECTION);
   rlPushMatrix();
   rlLoadIdentity();
 
-  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE)
-  {
-    double top = RL_CULL_DISTANCE_NEAR * tan(camera->ViewCamera.fovy * 0.5 * DEG2RAD);
+  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE) {
+    double top =
+        RL_CULL_DISTANCE_NEAR * tan(camera->ViewCamera.fovy * 0.5 * DEG2RAD);
     double right = top * aspect;
 
     rlFrustum(-right, right, -top, top, camera->NearPlane, camera->FarPlane);
-  }
-  else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC)
-  {
+  } else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC) {
     double top = camera->ViewCamera.fovy / 2.0;
     double right = top * aspect;
 
@@ -234,15 +235,16 @@ static void SetupCamera(RTSCamera *camera, float aspect)
   rlMatrixMode(RL_MODELVIEW);
   rlLoadIdentity();
 
-  Matrix matView = MatrixLookAt(camera->ViewCamera.position, camera->ViewCamera.target, camera->ViewCamera.up);
+  Matrix matView =
+      MatrixLookAt(camera->ViewCamera.position, camera->ViewCamera.target,
+                   camera->ViewCamera.up);
 
   rlMultMatrixf(MatrixToFloatV(matView).v);
 
   rlEnableDepthTest();
 }
 
-void RTSCameraBeginMode3D(RTSCamera *camera)
-{
+void RTSCameraBeginMode3D(RTSCamera* camera) {
   if (!camera)
     return;
 
@@ -250,7 +252,6 @@ void RTSCameraBeginMode3D(RTSCamera *camera)
   SetupCamera(camera, aspect);
 }
 
-void RTSCameraEndMode3D(void)
-{
+void RTSCameraEndMode3D(void) {
   EndMode3D();
 }

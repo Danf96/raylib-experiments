@@ -5,8 +5,7 @@
 #include "terrain.h"
 // Using Jeff M's Raylib extras camera
 // https://github.com/raylib-extras/extras-c/tree/main/cameras
-typedef enum
-{
+typedef enum {
   MOVE_FRONT = 0,
   MOVE_BACK,
   MOVE_RIGHT,
@@ -21,8 +20,7 @@ typedef enum
   LAST_CONTROL
 } RTSCameraControls;
 
-typedef struct
-{
+typedef struct {
   int ControlsKeys[LAST_CONTROL];
 
   // the speed in units/second to move
@@ -67,7 +65,7 @@ Vector3 RTSCameraGetTerrainPosition(RTSCamera *camera);
 
 void RTSCameraSetPosition(RTSCamera *camera, Vector3 position);
 
-Ray RTSCameraGetViewRay(RTSCamera *camera);
+Ray RTSCameraGetViewRay(RTSCamera* camera);
 
 void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap);
 

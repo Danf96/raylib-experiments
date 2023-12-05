@@ -1,36 +1,38 @@
 #include <stddef.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include "camera.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
-#include "camera.h"
 #include "scene.h"
-#include "terrain.h"
 #include "skybox.h"
+#include "terrain.h"
 
 #define screenWidth 1280
 #define screenHeight 720
 
-typedef struct MeshList
-{
+typedef struct {
   size_t capacity;
   size_t size;
-  Mesh *mesh;
+  Mesh* mesh;
 } MeshList;
 
-typedef struct MaterialList
-{
+typedef struct {
   size_t capacity;
   size_t size;
-  Material *mat;
+  Material* mat;
 } MaterialList;
+
+typedef struct {
+  short id;
+  BoundingBox dimensions;
+} BBox;
 
 Vector2 terrainOffset = {0};
 TerrainMap terrainMap = {0};
 
-int main(void)
-{
+int main(void) {
   //--------------------------------------------------------------------------
   // Initialization
   //--------------------------------------------------------------------------
@@ -87,52 +89,54 @@ int main(void)
 
   EntityList entityList = CreateEntityList(5);
   EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
-                                       .position = (Vector3){.x = 0, .y = 0.5f, .z = 0},
-                                       .materialHandle = 0,
-                                       .typeHandle = 1,
-                                       .type = ENT_TYPE_ACTOR};
-  if (AddEntity(&entityList, &newEnt))
-  {
+                     .position = (Vector3){.x = 0, .y = 0.5f, .z = 0},
+                     .dimensions = (Vector3){1, 1, 1},
+                     .materialHandle = 0,
+                     .typeHandle = 1,
+                     .type = ENT_TYPE_ACTOR};
+  if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
   }
 
   SetTargetFPS(200);
 
-
   RTSCamera camera;
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0});
   camera.ViewAngles.y = -15 * DEG2RAD;
-
 
   float simAccumulator = 0;
   float simDt = 1.f / 60.f;
 
   Ray mRay = {};
+  RayCollision collision = {};
   bool isClicked = false;
 
   //--------------------------------------------------------------------------
   // Main game loop
   //--------------------------------------------------------------------------
-  while (!WindowShouldClose()) // Detect window close button or ESC key
-  {
+  while (!WindowShouldClose()) {
+    // Detect window close button or ESC key
     //----------------------------------------------------------------------
     // Update
     //----------------------------------------------------------------------
     RTSCameraUpdate(&camera, &terrainMap);
     simAccumulator += GetFrameTime();
-    while (simAccumulator >= simDt)
-    {  
+    while (simAccumulator >= simDt) {
       UpdateDirtyEntities(&entityList, &terrainMap);
       simAccumulator -= simDt;
     }
-    
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
-    {
-      mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (!collision.hit) {
+        mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
+        collision = GetRayCollisionBox(mRay, GetMeshBoundingBox(meshList.mesh[entityList.entities[0].typeHandle]));
+      } else {
+        collision.hit = false;
+      }
       isClicked = true;
-      
     }
     
+
     //----------------------------------------------------------------------
     // Draw
     //----------------------------------------------------------------------
@@ -145,31 +149,20 @@ int main(void)
     // Draw Terrain
     DrawMesh(meshList.mesh[0], matList.mat[0], terrMatrix);
 
-    for (size_t i = 0; i < entityList.size; i++)
-    {
+    for (size_t i = 0; i < entityList.size; i++) {
       Entity ent = entityList.entities[i];
-      if (ent.type == ENT_TYPE_ACTOR)
-      {
-        DrawMesh(meshList.mesh[ent.typeHandle], matList.mat[ent.materialHandle], ent.worldMatrix);
+      if (ent.type == ENT_TYPE_ACTOR) {
+        DrawMesh(meshList.mesh[ent.typeHandle], matList.mat[ent.materialHandle],
+                 ent.worldMatrix);
       }
     }
 
     DrawSphere(camera.CameraPosition, 0.25f, RED);
-    if (isClicked)
-    {
+    if (isClicked) {
       DrawRay(mRay, RED);
-      TraceLog(LOG_INFO, TextFormat("pos: %f, %f, %f", mRay.position.x, mRay.position.y, mRay.position.z));
-      TraceLog(LOG_INFO, TextFormat("dir: %f, %f, %f", mRay.direction.x, mRay.direction.y, mRay.direction.z));
     }
-    BeginShaderMode(alphaDiscard);
-#if 0
 
-    for (auto &job : billBatch) {
-      Vector3 newPos = getAdjustedPosition(job.position, heightLevels);
-      DrawBillboard(camera, *billboardList[job.textureID], newPos, 1.0f,
-                    WHITE);
-    }
-#endif
+    BeginShaderMode(alphaDiscard);
 
     EndShaderMode();
 
@@ -178,10 +171,20 @@ int main(void)
 
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
-    
+
     RTSCameraEndMode3D();
+
+    if (collision.hit) {
+      DrawText("Box Selected", 400, 30, 20, GREEN);
+    } else {
+      DrawText("Box Not Selected", 400, 30, 20, RED);
+    }
     DrawFPS(10, 10);
-    DrawText(TextFormat("%.4f\n%.4f\n%05.4f", camera.CameraPosition.x + terrainOffset.x, camera.CameraPosition.y, camera.CameraPosition.z + terrainOffset.y), 10, 30, 20, WHITE);
+    DrawText(TextFormat("%.4f\n%.4f\n%05.4f",
+                        camera.CameraPosition.x + terrainOffset.x,
+                        camera.CameraPosition.y,
+                        camera.CameraPosition.z + terrainOffset.y),
+             10, 30, 20, WHITE);
 
     EndDrawing();
   }
@@ -194,12 +197,10 @@ int main(void)
   UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
   UnloadModel(skybox);
 
-  for (size_t i = 0; i < meshList.size; i++)
-  {
+  for (size_t i = 0; i < meshList.size; i++) {
     UnloadMesh(meshList.mesh[i]);
   }
-  for (size_t i = 0; i < matList.size; i++)
-  {
+  for (size_t i = 0; i < matList.size; i++) {
     UnloadMaterial(matList.mat[i]);
   }
 

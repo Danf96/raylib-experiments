@@ -4,10 +4,10 @@
 #include "raymath.h"
 #include "stddef.h"
 
-// intended for all terrain code, everything outside this module should rely on world coordinates
+// intended for all terrain code, everything outside this module should rely on
+// world coordinates
 
-typedef struct TerrainMap
-{
+typedef struct {
   int maxWidth;
   int maxHeight;
   float *value; // treat as 2d array, may convert to struct later

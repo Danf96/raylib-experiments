@@ -1,8 +1,7 @@
 #include "terrain.h"
 // Modified version of RayLib heighmap generation
 Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
-  
-  #define GRAY_VALUE(c) ((float)(c.r + c.g + c.b)/3.0f)
+#define GRAY_VALUE(c) ((float)(c.r + c.g + c.b) / 3.0f)
 
   Mesh mesh = {0};
 
@@ -15,7 +14,7 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
 
   // NOTE: One vertex per pixel
   mesh.triangleCount =
-      (mapX - 1) * (mapZ - 1) * 2; // One quad every four pixels
+      (mapX - 1) * (mapZ - 1) * 2;  // One quad every four pixels
 
   mesh.vertexCount = mesh.triangleCount * 3;
 
@@ -24,9 +23,9 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
   mesh.texcoords = RL_MALLOC(mesh.vertexCount * 2 * sizeof(float));
   mesh.colors = NULL;
 
-  int vCounter = 0;  // Used to count vertices float by float
-  int tcCounter = 0; // Used to count texcoords float by float
-  int nCounter = 0;  // Used to count normals float by float
+  int vCounter = 0;   // Used to count vertices float by float
+  int tcCounter = 0;  // Used to count texcoords float by float
+  int nCounter = 0;   // Used to count normals float by float
 
   Vector3 vA = {0};
   Vector3 vB = {0};
@@ -72,7 +71,7 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
       mesh.vertices[vCounter + 16] =
           GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
       mesh.vertices[vCounter + 17] = (float)(z + 1);
-      vCounter += 18; // 6 vertex, 18 floats
+      vCounter += 18;  // 6 vertex, 18 floats
 
       // Fill texcoords array with data
       //--------------------------------------------------------------
@@ -93,7 +92,7 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
 
       mesh.texcoords[tcCounter + 10] = (float)(x + 1) / (mapX - 1);
       mesh.texcoords[tcCounter + 11] = (float)(z + 1) / (mapZ - 1);
-      tcCounter += 12; // 6 texcoords, 12 floats
+      tcCounter += 12;  // 6 texcoords, 12 floats
 
       // Fill normals array with data
       //--------------------------------------------------------------
@@ -126,11 +125,11 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
         mesh.normals[nCounter + i + 8] = vN.z;
       }
 
-      nCounter += 18; // 6 vertex, 18 floats
+      nCounter += 18;  // 6 vertex, 18 floats
     }
   }
 
-  UnloadImageColors(pixels); // Unload pixels color data
+  UnloadImageColors(pixels);  // Unload pixels color data
 
   // Upload vertex data to GPU (static mesh)
   UploadMesh(&mesh, false);
@@ -138,33 +137,35 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap) {
   return mesh;
 }
 
-Vector3 WorldXZToTerrain(Vector3 worldPos, TerrainMap *terrainMap) {
-  return (Vector3){.x = worldPos.x + (terrainMap->maxWidth / 2.0f), .y = worldPos.y, .z = worldPos.z + (terrainMap->maxHeight / 2.0f)};
+Vector3 WorldXZToTerrain(Vector3 worldPos, TerrainMap* terrainMap) {
+  return (Vector3){.x = worldPos.x + (terrainMap->maxWidth / 2.0f),
+                   .y = worldPos.y,
+                   .z = worldPos.z + (terrainMap->maxHeight / 2.0f)};
 }
 
 float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap) {
-    Vector3 terrainPos = WorldXZToTerrain(worldPos, terrainMap);
-    int indexX = floor(terrainPos.x);
-    int indexZ = floor(terrainPos.z);
-    if (indexX >= terrainMap->maxWidth || indexZ >= terrainMap->maxHeight){
-      // we are out of bounds
-      return 0.0f;
-    }
-    Vector3 a, b, c; // three vectors constructed around oldPos
-    Vector3 barycenter; // u, v, w calculated from a, b, c
-    float answer;
-    if (terrainPos.x <= 1 - terrainPos.z) {
-      a = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], indexZ}; // maxWidth used as a stride offset
-      b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
-      c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+  Vector3 terrainPos = WorldXZToTerrain(worldPos, terrainMap);
+  int indexX = floor(terrainPos.x);
+  int indexZ = floor(terrainPos.z);
+  if (indexX >= terrainMap->maxWidth || indexZ >= terrainMap->maxHeight) {
+    // we are out of bounds
+    return 0.0f;
+  }
+  Vector3 a, b, c;     // three vectors constructed around oldPos
+  Vector3 barycenter;  // u, v, w calculated from a, b, c
+  float answer;
+  if (terrainPos.x <= 1 - terrainPos.z) {
+    a = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], indexZ}; // maxWidth used as a stride offset
+    b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
+    c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
 
-      } else {
-        a = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
-        b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
-        c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
-    }
-    barycenter = Vector3Barycenter(terrainPos, a, b, c);
-    answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
-    
-    return answer;
+  } else {
+    a = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
+    b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+    c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+  }
+  barycenter = Vector3Barycenter(terrainPos, a, b, c);
+  answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
+
+  return answer;
 }
