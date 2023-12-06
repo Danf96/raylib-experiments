@@ -109,6 +109,7 @@ int main(void) {
 
   Ray mRay = {};
   RayCollision collision = {};
+  Vector3 selectPoint = {};
   bool isClicked = false;
 
   //--------------------------------------------------------------------------
@@ -132,7 +133,7 @@ int main(void) {
           #if 0
           collision = GetRayCollisionBox(mRay, entityList.entities[0].bbox);
           #endif
-          collision = GetRayCollisionTerrain(mRay, &terrainMap);
+          selectPoint = GetRayPointTerrain(mRay, &terrainMap, camera.NearPlane, camera.FarPlane);
         } else {
           collision.hit = false;
         }
@@ -153,6 +154,7 @@ int main(void) {
     // Draw Terrain
     DrawMesh(meshList.mesh[0], matList.mat[0], terrMatrix);
 
+
     for (size_t i = 0; i < entityList.size; i++) {
       Entity ent = entityList.entities[i];
       if (ent.type == ENT_TYPE_ACTOR) {
@@ -165,8 +167,8 @@ int main(void) {
     if (isClicked) {
       DrawRay(mRay, RED);
     }
-    if (collision.hit) {
-      DrawSphere(collision.point, 0.25f, GREEN);
+    if (selectPoint.y != 0) {
+      DrawSphere(selectPoint, 0.25f, GREEN);
     }
 
     BeginShaderMode(alphaDiscard);

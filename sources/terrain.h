@@ -25,4 +25,4 @@ float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap);
 // raylib mesh generation, while also populating an array of floats for future lookups
 Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap);
 
-RayCollision GetRayCollisionTerrain(Ray ray, TerrainMap *terrainMap);
+Vector3 GetRayPointTerrain(Ray ray, TerrainMap *terrainMap, float zNear, float zFar);

@@ -186,100 +186,28 @@ float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap)
 }
 
 // Get collision info between ray and terrain
-// sourced from  https://lodev.org/cgtutor/raycasting.html
-RayCollision GetRayCollisionTerrain(Ray ray, TerrainMap *terrainMap)
+// sourced from  https://iquilezles.org/articles/terrainmarching/
+Vector3 GetRayPointTerrain(Ray ray, TerrainMap *terrainMap, float zNear, float zFar)
 {
-  RayCollision collision = {0};
-
   // calculations will be done using terrain coordinates until testing collision
   Vector3 rayPos = WorldXZToTerrain(ray.position, terrainMap);
 
-  // used to find the first y point below the heightmap's height value
-  float currentY = rayPos.y;
-
-  // length of ray from current pos to next x or z index
-  float sideDistX;
-  float sideDistZ;
-
-  // used to access heightmap elements
-  int indexX = floor(rayPos.x);
-  int indexZ = floor(rayPos.z);
-
-  // step direction for X and Z
-  int stepX;
-  int stepZ;
-
   // change in direction in 3 axes
-  float tDeltaX = fabs(1.0f / ray.direction.x);
-  float tDeltaY = fabs(1.0f / ray.direction.y);
-  float tDeltaZ = fabs(1.0f / ray.direction.z);
-
-  if (ray.direction.x < 0)
+  float tDelta = 0.5f;
+  Vector3 p;
+  bool intersection = false;
+  for (float t = zNear; t < zFar; t += tDelta)
   {
-    stepX = -1;
-    sideDistX = (rayPos.x - indexX) * tDeltaX;
-  }
-  else
-  {
-    stepX = 1;
-    sideDistX = (indexX + 1.0 - rayPos.x) * tDeltaX;
-  }
-  if (ray.direction.z < 0)
-  {
-    stepZ = -1;
-    sideDistZ = (rayPos.z - indexZ) * tDeltaZ;
-  }
-  else
-  {
-    stepZ = 1;
-    sideDistZ = (indexZ + 1.0 - rayPos.z) * tDeltaZ;
-  }
-  while (currentY > terrainMap->value[indexX * terrainMap->maxWidth + indexZ])
-  {
-    if (sideDistX < sideDistZ)
-    {
-      sideDistX += tDeltaX;
-      indexX += stepX;
+    p = Vector3Add(rayPos, Vector3Scale(ray.direction, t));
+    // check to ensure no segfaults
+    if (p.x < 0 || p.z < 0 || p.x > terrainMap->maxWidth - 1 || p.z > terrainMap->maxHeight - 1) {
+      return (Vector3){0};
     }
-    else
+    float heightY = terrainMap->value[(int)floor(p.x) * terrainMap->maxWidth + (int)floor(p.z)];
+    if (p.y < heightY)
     {
-      sideDistZ += tDeltaZ;
-      indexZ += stepZ;
+      return TerrainXZToWorld(p, terrainMap);
     }
-    currentY -= tDeltaY;
-    float debugTemp = terrainMap->value[indexX * terrainMap->maxWidth + indexZ];
-    //TraceLog(LOG_INFO, TextFormat("current y: %f \theightmap y: %f"), currentY, debugTemp);
   }
-
-  Vector3 a, b, c;
-  RayCollision triHitInfo;
-
-  // The points are expected to be in counter-clockwise winding
-  Vector3 worldPos = TerrainXZToWorld((Vector3){indexX, 0, indexZ}, terrainMap);
-
-  a = (Vector3){worldPos.x, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], worldPos.z}; // maxWidth used as a stride offset
-  b = (Vector3){worldPos.x + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], worldPos.z};
-  c = (Vector3){worldPos.x, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], worldPos.z + 1};
-
-  triHitInfo = GetRayCollisionTriangle(ray, b, a, c);
-
-  if (triHitInfo.hit)
-  {
-    collision = triHitInfo;
-  }
-
-  a = (Vector3){worldPos.x + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], worldPos.z};
-  b = (Vector3){worldPos.x + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], worldPos.z + 1};
-  c = (Vector3){worldPos.x, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], worldPos.z + 1};
-
-  triHitInfo = GetRayCollisionTriangle(ray, b, a, c);
-
-  if (triHitInfo.hit)
-  {
-    // Save the closest hit triangle
-    if (collision.distance > triHitInfo.distance)
-      collision = triHitInfo;
-  }
-
-  return collision;
+  return (Vector3){0};
 }
