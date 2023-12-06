@@ -125,15 +125,19 @@ int main(void) {
       UpdateDirtyEntities(&entityList, &terrainMap);
       simAccumulator -= simDt;
     }
-
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      if (!collision.hit) {
-        mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
-        collision = GetRayCollisionBox(mRay, GetMeshBoundingBox(meshList.mesh[entityList.entities[0].typeHandle]));
-      } else {
-        collision.hit = false;
+    if (IsWindowFocused()) {
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (!collision.hit) {
+          mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
+          #if 0
+          collision = GetRayCollisionBox(mRay, entityList.entities[0].bbox);
+          #endif
+          collision = GetRayCollisionTerrain(mRay, &terrainMap);
+        } else {
+          collision.hit = false;
+        }
+        isClicked = true;
       }
-      isClicked = true;
     }
     
 
@@ -161,6 +165,9 @@ int main(void) {
     if (isClicked) {
       DrawRay(mRay, RED);
     }
+    if (collision.hit) {
+      DrawSphere(collision.point, 0.25f, GREEN);
+    }
 
     BeginShaderMode(alphaDiscard);
 
@@ -175,9 +182,9 @@ int main(void) {
     RTSCameraEndMode3D();
 
     if (collision.hit) {
-      DrawText("Box Selected", 400, 30, 20, GREEN);
+      DrawText("Terrain Selected", 400, 30, 20, GREEN);
     } else {
-      DrawText("Box Not Selected", 400, 30, 20, RED);
+      DrawText("Terrain Not Selected", 400, 30, 20, RED);
     }
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",

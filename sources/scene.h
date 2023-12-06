@@ -8,12 +8,14 @@
 
 #include "terrain.h"
 
-typedef enum {
+typedef enum
+{
   ENT_TYPE_EMPTY = 0,
   ENT_TYPE_ACTOR,
 } EntityType;
 
-typedef struct {
+typedef struct
+{
   short id;
   Vector3 scale;
   Vector3 position;
@@ -28,7 +30,8 @@ typedef struct {
   bool isDirty;
 } Entity;
 
-typedef struct {
+typedef struct
+{
   Vector3 scale;
   Vector3 position;
   Vector3 dimensions;
@@ -38,10 +41,11 @@ typedef struct {
   EntityType type;
 } EntityCreate;
 
-typedef struct {
+typedef struct
+{
   size_t capacity;
   size_t size;
-  Entity* entities;
+  Entity *entities;
 } EntityList;
 
 extern Vector2 terrainOffset;

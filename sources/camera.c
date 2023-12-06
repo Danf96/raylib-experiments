@@ -130,7 +130,8 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   bool showCursor = !camera->UseMouse || camera->UseMouseButton >= 0;
 
-  if (IsWindowFocused()) {
+  if (IsWindowFocused())
+  {
 // Mouse Input handling
 #if 0
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) 
@@ -139,9 +140,12 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       Ray mRay = GetMouseRay(mousePos, camera->ViewCamera);
     }
 #endif
-    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
+    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
+    {
       HideCursor();
-    } else {
+    }
+    else
+    {
       ShowCursor();
     }
   }
@@ -205,27 +209,30 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
 
-  camera->CameraPosition.y =
-      GetAdjustedHeight(camera->CameraPosition, terrainMap);
+  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
 
   camera->ViewCamera.target = camera->CameraPosition;
   camera->ViewCamera.position =
-      Vector3Add(camera->CameraPosition, camPos);  // offsets camera from target
+      Vector3Add(camera->CameraPosition, camPos); // offsets camera from target
 }
 
-static void SetupCamera(RTSCamera* camera, float aspect) {
+static void SetupCamera(RTSCamera *camera, float aspect)
+{
   rlDrawRenderBatchActive();
   rlMatrixMode(RL_PROJECTION);
   rlPushMatrix();
   rlLoadIdentity();
 
-  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE) {
+  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE)
+  {
     double top =
         RL_CULL_DISTANCE_NEAR * tan(camera->ViewCamera.fovy * 0.5 * DEG2RAD);
     double right = top * aspect;
 
     rlFrustum(-right, right, -top, top, camera->NearPlane, camera->FarPlane);
-  } else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC) {
+  }
+  else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC)
+  {
     double top = camera->ViewCamera.fovy / 2.0;
     double right = top * aspect;
 
@@ -244,7 +251,8 @@ static void SetupCamera(RTSCamera* camera, float aspect) {
   rlEnableDepthTest();
 }
 
-void RTSCameraBeginMode3D(RTSCamera* camera) {
+void RTSCameraBeginMode3D(RTSCamera *camera)
+{
   if (!camera)
     return;
 
@@ -252,6 +260,7 @@ void RTSCameraBeginMode3D(RTSCamera* camera) {
   SetupCamera(camera, aspect);
 }
 
-void RTSCameraEndMode3D(void) {
+void RTSCameraEndMode3D(void)
+{
   EndMode3D();
 }
