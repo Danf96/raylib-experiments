@@ -3,6 +3,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "terrain.h"
+#include "stdint.h"
 // Using Jeff M's Raylib extras camera
 // https://github.com/raylib-extras/extras-c/tree/main/cameras
 typedef enum
@@ -21,17 +22,17 @@ typedef enum
   LAST_CONTROL
 } RTSCameraControls;
 
+
 typedef struct
 {
   int ControlsKeys[LAST_CONTROL];
+
+  uint8_t mouseButton;
 
   // the speed in units/second to move
   Vector3 MoveSpeed;
 
   Vector2 RotationSpeed;
-
-  bool UseMouse;
-  int UseMouseButton;
 
   float MouseSensitivity;
 
@@ -74,3 +75,5 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap);
 void RTSCameraBeginMode3D(RTSCamera *camera);
 
 void RTSCameraEndMode3D(void);
+
+void RTSCameraClearInputs(RTSCamera *camera);

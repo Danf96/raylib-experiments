@@ -105,7 +105,7 @@ int main(void) {
   camera.ViewAngles.y = -15 * DEG2RAD;
 
   float simAccumulator = 0;
-  float simDt = 1.f / 60.f;
+  float simDt = 1.f / 30.f; // how many times a second calculations should be made
 
   Ray mRay = {};
   RayCollision collision = {};
@@ -123,7 +123,7 @@ int main(void) {
     RTSCameraUpdate(&camera, &terrainMap);
     simAccumulator += GetFrameTime();
     while (simAccumulator >= simDt) {
-      UpdateDirtyEntities(&entityList, &terrainMap);
+      UpdateEntities(&entityList, &terrainMap, &camera);
       simAccumulator -= simDt;
     }
     if (IsWindowFocused()) {
@@ -183,11 +183,6 @@ int main(void) {
 
     RTSCameraEndMode3D();
 
-    if (collision.hit) {
-      DrawText("Terrain Selected", 400, 30, 20, GREEN);
-    } else {
-      DrawText("Terrain Not Selected", 400, 30, 20, RED);
-    }
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",
                         camera.CameraPosition.x + terrainOffset.x,

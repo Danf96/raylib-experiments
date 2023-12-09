@@ -43,10 +43,41 @@ EntityList CreateEntityList(size_t capacity)
   return newList;
 }
 
-void UpdateDirtyEntities(EntityList *entityList, TerrainMap *terrainMap)
+// eventually pull out of scene
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera)
 {
+  Ray mRay = {};
+  if (camera->mouseButton > 0)
+  {
+    mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
+  }
+  if (camera->mouseButton == MOUSE_BUTTON_LEFT)
+  {
+    RayCollision collision = {};
+    for (size_t i = 0; i < entityList->size; i++)
+    {
+      collision = GetRayCollisionBox(mRay, entityList->entities[i].bbox);
+      if (collision.hit)
+      {
+        selectedId = i;
+        break;
+      }
+    }
+    if (!collision.hit)
+    {
+      selectedId = -1;
+    }
+  }
+  else if (camera->mouseButton == MOUSE_BUTTON_RIGHT)
+    {
+      if (selectedId >= 0)
+      {
+        MoveEntity(GetRayPointTerrain(mRay, terrainMap, camera->NearPlane, camera->FarPlane));
+      }
+    }
   for (size_t i = 0; i < entityList->size; i++)
   {
+    // update entities here then mark dirty
     if (entityList->entities[i].isDirty)
     {
       Entity *dirtyEnt = &entityList->entities[i];

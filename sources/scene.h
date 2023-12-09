@@ -7,7 +7,9 @@
 #include "raymath.h"
 
 #include "terrain.h"
+#include "camera.h"
 
+int selectedId = -1;
 typedef enum
 {
   ENT_TYPE_EMPTY = 0,
@@ -53,6 +55,7 @@ extern Vector2 terrainOffset;
 int AddEntity(EntityList *entityList, EntityCreate *entityCreate);
 
 EntityList CreateEntityList(size_t capacity);
-void UpdateDirtyEntities(EntityList *entityList, TerrainMap *terrainMap);
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
 
 BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
+

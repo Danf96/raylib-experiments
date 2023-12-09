@@ -38,6 +38,8 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position)
   camera->ControlsKeys[9] = KEY_DOWN;
   camera->ControlsKeys[10] = KEY_LEFT_SHIFT;
 
+  camera->mouseButton = 0;
+
   camera->MoveSpeed = (Vector3){3, 3, 3};
   camera->RotationSpeed = (Vector2){90, 90};
 
@@ -65,23 +67,6 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position)
   camera->FarPlane = 1000.0;
 
   ResizeRTSOrbitCameraView(camera);
-  RTSCameraUseMouse(camera, true, 1);
-}
-
-void RTSCameraUseMouse(RTSCamera *camera, bool useMouse, int button)
-{
-  if (!camera)
-    return;
-
-  camera->UseMouse = useMouse;
-  camera->UseMouseButton = button;
-
-  bool showCursor = !useMouse || button >= 0;
-
-  if (!showCursor && IsWindowFocused())
-    DisableCursor();
-  else if (showCursor && IsWindowFocused())
-    EnableCursor();
 }
 
 Vector3 RTSCameraGetPosition(RTSCamera *camera)
@@ -127,26 +112,26 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   if (IsWindowResized())
     ResizeRTSOrbitCameraView(camera);
+  camera->Focused = IsWindowFocused();
 
-  bool showCursor = !camera->UseMouse || camera->UseMouseButton >= 0;
+  bool isPressed = false;
 
-  if (IsWindowFocused())
+  if (camera->Focused)
   {
-// Mouse Input handling
-#if 0
-    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) 
+    for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_RIGHT; button++)
     {
-      Vector2 mousePos = GetMousePosition();
-      Ray mRay = GetMouseRay(mousePos, camera->ViewCamera);
-    }
-#endif
-    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
-    {
-      HideCursor();
-    }
-    else
-    {
-      ShowCursor();
+      if (IsMouseButtonPressed(button))
+      {
+        camera->mouseButton = button;
+        isPressed = true;
+        break;
+      }
+      else if (IsMouseButtonReleased(button))
+      {
+        camera->mouseButton = button;
+        isPressed = false;
+        break;
+      }
     }
   }
 
@@ -161,9 +146,15 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
       GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
 
-  bool useMouse =
-      camera->UseMouse &&
-      (camera->UseMouseButton < 0 || IsMouseButtonDown(camera->UseMouseButton));
+  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE);
+  if (rotateMouse && isPressed)
+  {
+    HideCursor();
+  }
+  else
+  {
+    ShowCursor();
+  }
 
   float pivotHeadingRotation =
       GetSpeedForAxis(camera, ROTATE_RIGHT, camera->RotationSpeed.x) -
@@ -174,12 +165,12 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   if (pivotHeadingRotation)
     camera->ViewAngles.x -= pivotHeadingRotation * DEG2RAD;
-  else if (useMouse && camera->Focused)
+  else if (rotateMouse && camera->Focused)
     camera->ViewAngles.x -= (mousePositionDelta.x / camera->MouseSensitivity);
 
   if (pivotPitchRotation)
     camera->ViewAngles.y += pivotPitchRotation * DEG2RAD;
-  else if (useMouse && camera->Focused)
+  else if (rotateMouse && camera->Focused)
     camera->ViewAngles.y += (mousePositionDelta.y / -camera->MouseSensitivity);
 
   // Clamp view angles
@@ -194,7 +185,7 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   // Update zoom
   camera->CameraPullbackDistance +=
-      GetMouseWheelMove() + (direction[MOVE_UP] - direction[MOVE_DOWN]);
+      (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
   if (camera->CameraPullbackDistance < 1)
     camera->CameraPullbackDistance = 1;
 
