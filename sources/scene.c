@@ -1,6 +1,7 @@
 #include "scene.h"
 
 static size_t GLOBAL_ID = 0;
+static int selectedId = -1;
 
 int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
 {
@@ -29,6 +30,7 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
                            .typeHandle = entityCreate->typeHandle,
                            .materialHandle = entityCreate->materialHandle,
                            .id = GLOBAL_ID,
+                           .isMoving = false,
                            .isDirty = true};
   entityList->entities[entityList->size] = entity;
   entityList->size++;
@@ -47,7 +49,7 @@ EntityList CreateEntityList(size_t capacity)
 void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera)
 {
   Ray mRay = {};
-  if (camera->mouseButton > 0)
+  if (camera->mouseButton == MOUSE_BUTTON_LEFT || camera->mouseButton == MOUSE_BUTTON_RIGHT)
   {
     mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
   }
@@ -72,23 +74,37 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
     {
       if (selectedId >= 0)
       {
-        MoveEntity(GetRayPointTerrain(mRay, terrainMap, camera->NearPlane, camera->FarPlane));
+        Vector3 target = GetRayPointTerrain(mRay, terrainMap, camera->NearPlane, camera->FarPlane);
+        MoveEntity((Vector2){target.x, target.z}, selectedId, entityList);
       }
     }
   for (size_t i = 0; i < entityList->size; i++)
   {
     // update entities here then mark dirty
-    if (entityList->entities[i].isDirty)
+    Entity *Ent = &entityList->entities[i];
+    if (Ent->isMoving)
     {
-      Entity *dirtyEnt = &entityList->entities[i];
-      Vector3 adjustedPos = (Vector3){.x = dirtyEnt->position.x,
-                                      .z = dirtyEnt->position.z,
-                                      .y = dirtyEnt->position.y + GetAdjustedHeight(dirtyEnt->position, terrainMap)};
-      dirtyEnt->worldMatrix = MatrixMultiply(MatrixRotateXYZ(dirtyEnt->rotation),
+      if (Vector2Equals((Vector2){Ent->position.x, Ent->position.z}, Ent->targetPos)){
+        Ent->isMoving = false;
+      }
+      float adjustedSpeed = Ent->moveSpeed * GetFrameTime(); //pass to update loop later
+      if (Ent->isMoving)
+      {
+        Vector2 moveVec = Vector2Scale(Vector2Normalize(Vector2Subtract((Vector2){Ent->position.x, Ent->position.z}, Ent->targetPos)), adjustedSpeed);
+        Ent->position = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, Ent->position);
+      }
+    }
+    
+    if (Ent->isDirty)
+    {
+      Vector3 adjustedPos = (Vector3){.x = Ent->position.x,
+                                      .z = Ent->position.z,
+                                      .y = Ent->position.y + GetAdjustedHeight(Ent->position, terrainMap)};
+      Ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(Ent->rotation),
                                              MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
-                                                            MatrixScale(dirtyEnt->scale.x, dirtyEnt->scale.y, dirtyEnt->scale.z)));
-      dirtyEnt->bbox = DeriveBBox(&adjustedPos, &dirtyEnt->dimensions, &dirtyEnt->scale);
-      dirtyEnt->isDirty = false;
+                                                            MatrixScale(Ent->scale.x, Ent->scale.y, Ent->scale.z)));
+      Ent->bbox = DeriveBBox(&adjustedPos, &Ent->dimensions, &Ent->scale);
+      Ent->isDirty = false;
     }
   }
 }
@@ -103,4 +119,11 @@ BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
                 position->y + (dimensions->y * scale->y) / 2.0f,
                 position->z + (dimensions->z * scale->z) / 2.0f},
   };
+}
+
+void MoveEntity(Vector2 position, short entityId, EntityList *entityList)
+{
+  Entity *targetEntity = &entityList->entities[entityId];
+  targetEntity->targetPos = position;
+  targetEntity->isMoving = true;
 }

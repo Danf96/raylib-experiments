@@ -107,6 +107,7 @@ static float GetSpeedForAxis(RTSCamera *camera, RTSCameraControls axis, float sp
 
 void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 {
+  // NOTE: left and right mouse buttons showing no effect
   if (!camera)
     return;
 
@@ -118,9 +119,9 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   if (camera->Focused)
   {
-    for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_RIGHT; button++)
+    for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_MIDDLE; button++)
     {
-      if (IsMouseButtonPressed(button))
+      if (IsMouseButtonDown(button))
       {
         camera->mouseButton = button;
         isPressed = true;
@@ -146,8 +147,8 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
       GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
 
-  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE);
-  if (rotateMouse && isPressed)
+  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE && isPressed);
+  if (rotateMouse)
   {
     HideCursor();
   }
@@ -184,10 +185,8 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
   moveVec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
   // Update zoom
-  camera->CameraPullbackDistance +=
-      (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
-  if (camera->CameraPullbackDistance < 1)
-    camera->CameraPullbackDistance = 1;
+  camera->CameraPullbackDistance += (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
+  if (camera->CameraPullbackDistance < 1) camera->CameraPullbackDistance = 1;
 
   Vector3 camPos = {.z = camera->CameraPullbackDistance};
 

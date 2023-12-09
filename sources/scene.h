@@ -9,7 +9,7 @@
 #include "terrain.h"
 #include "camera.h"
 
-int selectedId = -1;
+
 typedef enum
 {
   ENT_TYPE_EMPTY = 0,
@@ -24,11 +24,14 @@ typedef struct
   Vector3 dimensions;
   Vector3 velocity;
   Vector3 rotation;
+  Vector2 targetPos;
+  float moveSpeed;
   Matrix worldMatrix;
   short int typeHandle;
   short int materialHandle;
   EntityType type;
   BoundingBox bbox;
+  bool isMoving;
   bool isDirty;
 } Entity;
 
@@ -58,4 +61,6 @@ EntityList CreateEntityList(size_t capacity);
 void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
 
 BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
+
+void MoveEntity(Vector2 position, short entityId, EntityList *entityList);
 

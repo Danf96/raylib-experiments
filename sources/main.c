@@ -107,11 +107,6 @@ int main(void) {
   float simAccumulator = 0;
   float simDt = 1.f / 30.f; // how many times a second calculations should be made
 
-  Ray mRay = {};
-  RayCollision collision = {};
-  Vector3 selectPoint = {};
-  bool isClicked = false;
-
   //--------------------------------------------------------------------------
   // Main game loop
   //--------------------------------------------------------------------------
@@ -126,21 +121,6 @@ int main(void) {
       UpdateEntities(&entityList, &terrainMap, &camera);
       simAccumulator -= simDt;
     }
-    if (IsWindowFocused()) {
-      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        if (!collision.hit) {
-          mRay = GetMouseRay(GetMousePosition(), camera.ViewCamera);
-          #if 0
-          collision = GetRayCollisionBox(mRay, entityList.entities[0].bbox);
-          #endif
-          selectPoint = GetRayPointTerrain(mRay, &terrainMap, camera.NearPlane, camera.FarPlane);
-        } else {
-          collision.hit = false;
-        }
-        isClicked = true;
-      }
-    }
-    
 
     //----------------------------------------------------------------------
     // Draw
@@ -164,12 +144,6 @@ int main(void) {
     }
 
     DrawSphere(camera.CameraPosition, 0.25f, RED);
-    if (isClicked) {
-      DrawRay(mRay, RED);
-    }
-    if (selectPoint.y != 0) {
-      DrawSphere(selectPoint, 0.25f, GREEN);
-    }
 
     BeginShaderMode(alphaDiscard);
 
