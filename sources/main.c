@@ -93,7 +93,8 @@ int main(void) {
 
   EntityList entityList = CreateEntityList(5);
   EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
-                     .position = (Vector3){.x = 0, .y = 0.5f, .z = 0},
+                     .position = (Vector2){.x = 0, .y = 0.f},
+                     .offsetY = 0.5f,
                      .dimensions = (Vector3){1, 1, 1},
                      .materialHandle = 0,
                      .typeHandle = 1,

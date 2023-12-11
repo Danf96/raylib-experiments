@@ -199,9 +199,9 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
   moveVec = Vector3Transform(moveVec, rotMat);
 
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
-
+  
   camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
-
+  
   camera->ViewCamera.target = camera->CameraPosition;
   camera->ViewCamera.position =
       Vector3Add(camera->CameraPosition, camPos); // offsets camera from target

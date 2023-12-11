@@ -1,4 +1,5 @@
 #include "scene.h"
+#include <string.h>
 
 static size_t GLOBAL_ID = 0;
 static int selectedId = -1;
@@ -22,7 +23,8 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
       return 1;
     }
   }
-  Entity entity = (Entity){.position = entityCreate->position,
+  Entity entity = (Entity){.position = (Vector3){entityCreate->position.x, entityCreate->offsetY, entityCreate->position.y},
+                            .offsetY = entityCreate->offsetY,
                            .rotation = entityCreate->rotation,
                            .dimensions = entityCreate->dimensions,
                            .scale = entityCreate->scale,
@@ -40,7 +42,8 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
 
 EntityList CreateEntityList(size_t capacity)
 {
-  EntityList newList = {.capacity = capacity, .selected = {-1}};
+  EntityList newList = {.capacity = capacity};
+  memset(newList.selected, -1, sizeof(newList.selected));
   newList.entities = MemAlloc(sizeof(*newList.entities) * capacity);
   return newList;
 }
@@ -111,7 +114,8 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
     {
       Vector3 adjustedPos = (Vector3){.x = ent->position.x,
                                       .z = ent->position.z,
-                                      .y = ent->position.y + GetAdjustedHeight(ent->position, terrainMap)};
+                                      .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
+      ent->position = adjustedPos;
       ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(ent->rotation),
                                         MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
                                                        MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));

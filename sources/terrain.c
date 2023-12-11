@@ -166,22 +166,24 @@ float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap)
     // we are out of bounds
     return 0.0f;
   }
+  float xCoord = (terrainPos.x - indexX);
+  float zCoord = (terrainPos.z - indexZ);
   Vector3 a, b, c;    // three vectors constructed around oldPos
   Vector3 barycenter; // u, v, w calculated from a, b, c
   float answer;
-  if (terrainPos.x <= 1 - terrainPos.z)
+  if (xCoord <= 1 - zCoord)
   {
-    a = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], indexZ}; // maxWidth used as a stride offset
-    b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
-    c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+    a = (Vector3){0, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], 0}; // maxWidth used as a stride offset
+    b = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], 0};
+    c = (Vector3){0, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], 1};
   }
   else
   {
-    a = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], indexZ};
-    b = (Vector3){indexX + 1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
-    c = (Vector3){indexX, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], indexZ + 1};
+    a = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ )], 0};
+    b = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], 1};
+    c = (Vector3){0, terrainMap->value[(indexX) * terrainMap->maxWidth + (indexZ + 1)], 1};
   }
-  barycenter = Vector3Barycenter(terrainPos, a, b, c);
+  barycenter = Vector3Barycenter((Vector3){xCoord, terrainPos.y, zCoord}, a, b, c);
   answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
 
   return answer;

@@ -19,6 +19,7 @@ typedef enum
 typedef struct
 {
   short id;
+  float offsetY;
   Vector3 scale;
   Vector3 position;
   Vector3 dimensions;
@@ -38,9 +39,10 @@ typedef struct
 typedef struct
 {
   Vector3 scale;
-  Vector3 position;
+  Vector2 position;
   Vector3 dimensions;
   Vector3 rotation;
+  float offsetY;
   float moveSpeed;
   short int typeHandle;
   short int materialHandle;
