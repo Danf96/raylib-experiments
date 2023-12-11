@@ -124,17 +124,18 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       if (IsMouseButtonDown(button))
       {
         camera->mouseButton = button;
-        isPressed = true;
+        camera->isButtonPressed = true;
         break;
       }
       else if (IsMouseButtonReleased(button))
       {
         camera->mouseButton = button;
-        isPressed = false;
+        camera->isButtonPressed = false;
         break;
       }
     }
   }
+  else (camera->isButtonPressed = false); //no buttons registered when not focused
 
   Vector2 mousePositionDelta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
@@ -147,7 +148,7 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
       GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
 
-  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE && isPressed);
+  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE && camera->isButtonPressed);
   if (rotateMouse)
   {
     HideCursor();

@@ -12,6 +12,8 @@
 #define screenWidth 1280
 #define screenHeight 720
 
+char *mouseStrings[] = {"LMB", "RMB", "MMB"};
+
 typedef struct {
   size_t capacity;
   size_t size;
@@ -40,7 +42,9 @@ int main(void) {
 
   // textures, models, and shaders
   Texture2D bill = LoadTexture("../resources/billboard.png");
+  #if 0
   Shader alphaDiscard = LoadShader(NULL, "../shaders/alphaDiscard.fs");
+  #endif
 
   GenTextureMipmaps(&bill);
   SetTextureWrap(bill, TEXTURE_WRAP_CLAMP);
@@ -93,12 +97,13 @@ int main(void) {
                      .dimensions = (Vector3){1, 1, 1},
                      .materialHandle = 0,
                      .typeHandle = 1,
+                     .moveSpeed = 6.f,
                      .type = ENT_TYPE_ACTOR};
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
   }
 
-  SetTargetFPS(200);
+  SetTargetFPS(60);
 
   RTSCamera camera;
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0});
@@ -118,7 +123,7 @@ int main(void) {
     RTSCameraUpdate(&camera, &terrainMap);
     simAccumulator += GetFrameTime();
     while (simAccumulator >= simDt) {
-      UpdateEntities(&entityList, &terrainMap, &camera);
+      UpdateEntities(&entityList, &terrainMap, &camera, GetFrameTime());
       simAccumulator -= simDt;
     }
 
@@ -134,20 +139,31 @@ int main(void) {
     // Draw Terrain
     DrawMesh(meshList.mesh[0], matList.mat[0], terrMatrix);
 
-
-    for (size_t i = 0; i < entityList.size; i++) {
-      Entity ent = entityList.entities[i];
-      if (ent.type == ENT_TYPE_ACTOR) {
-        DrawMesh(meshList.mesh[ent.typeHandle], matList.mat[ent.materialHandle],
-                 ent.worldMatrix);
+    // draw entities
+    for (size_t i = 0; i < entityList.size; i++) 
+    {
+      Entity *ent = &entityList.entities[i];
+      if (ent->type == ENT_TYPE_ACTOR) {
+        DrawMesh(meshList.mesh[ent->typeHandle], matList.mat[ent->materialHandle],
+                 ent->worldMatrix);
       }
     }
+    // draw selection boxes 
+    for (size_t i = 0; i < (sizeof(entityList.selected)/sizeof(entityList.selected[0])); i++)
+    {
+      if (entityList.selected[i] < 0) break;
+      Entity *ent = &entityList.entities[i];
+      DrawCubeWires(Vector3Transform(Vector3Zero() ,ent->worldMatrix), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+    }
+    
 
     DrawSphere(camera.CameraPosition, 0.25f, RED);
 
+    #if 0
     BeginShaderMode(alphaDiscard);
 
     EndShaderMode();
+    #endif
 
     // red outer circle
     // DrawCircle3D(Vector3Zero(), 2, (Vector3){1, 0, 0}, 90, RED);
@@ -163,6 +179,7 @@ int main(void) {
                         camera.CameraPosition.y,
                         camera.CameraPosition.z + terrainOffset.y),
              10, 30, 20, WHITE);
+    DrawText(TextFormat("%s", mouseStrings[camera.mouseButton]), 100, 100, 20, GRAY);
 
     EndDrawing();
   }
@@ -175,10 +192,12 @@ int main(void) {
   UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
   UnloadModel(skybox);
 
-  for (size_t i = 0; i < meshList.size; i++) {
+  for (size_t i = 0; i < meshList.size; i++) 
+  {
     UnloadMesh(meshList.mesh[i]);
   }
-  for (size_t i = 0; i < matList.size; i++) {
+  for (size_t i = 0; i < matList.size; i++) 
+  {
     UnloadMaterial(matList.mat[i]);
   }
 

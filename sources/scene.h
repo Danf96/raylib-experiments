@@ -41,6 +41,7 @@ typedef struct
   Vector3 position;
   Vector3 dimensions;
   Vector3 rotation;
+  float moveSpeed;
   short int typeHandle;
   short int materialHandle;
   EntityType type;
@@ -51,6 +52,7 @@ typedef struct
   size_t capacity;
   size_t size;
   Entity *entities;
+  short selected[10];
 } EntityList;
 
 extern Vector2 terrainOffset;
@@ -58,7 +60,7 @@ extern Vector2 terrainOffset;
 int AddEntity(EntityList *entityList, EntityCreate *entityCreate);
 
 EntityList CreateEntityList(size_t capacity);
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera, float dt);
 
 BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
 

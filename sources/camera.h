@@ -28,6 +28,7 @@ typedef struct
   int ControlsKeys[LAST_CONTROL];
 
   uint8_t mouseButton;
+  bool isButtonPressed;
 
   // the speed in units/second to move
   Vector3 MoveSpeed;

@@ -30,7 +30,7 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
                            .typeHandle = entityCreate->typeHandle,
                            .materialHandle = entityCreate->materialHandle,
                            .id = GLOBAL_ID,
-                           .isMoving = false,
+                           .moveSpeed = entityCreate->moveSpeed,
                            .isDirty = true};
   entityList->entities[entityList->size] = entity;
   entityList->size++;
@@ -40,71 +40,83 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
 
 EntityList CreateEntityList(size_t capacity)
 {
-  EntityList newList = {.capacity = capacity};
+  EntityList newList = {.capacity = capacity, .selected = {-1}};
   newList.entities = MemAlloc(sizeof(*newList.entities) * capacity);
   return newList;
 }
 
-// eventually pull out of scene
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera)
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera, float dt)
 {
   Ray mRay = {};
-  if (camera->mouseButton == MOUSE_BUTTON_LEFT || camera->mouseButton == MOUSE_BUTTON_RIGHT)
+  if (camera->isButtonPressed)
   {
-    mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
-  }
-  if (camera->mouseButton == MOUSE_BUTTON_LEFT)
-  {
-    RayCollision collision = {};
-    for (size_t i = 0; i < entityList->size; i++)
+    if (camera->mouseButton == MOUSE_BUTTON_LEFT || camera->mouseButton == MOUSE_BUTTON_RIGHT)
     {
-      collision = GetRayCollisionBox(mRay, entityList->entities[i].bbox);
-      if (collision.hit)
+      mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
+    }
+    if (camera->mouseButton == MOUSE_BUTTON_LEFT)
+    {
+      RayCollision collision = {};
+      for (size_t i = 0; i < entityList->size; i++)
       {
-        selectedId = i;
-        break;
+        collision = GetRayCollisionBox(mRay, entityList->entities[i].bbox);
+        if (collision.hit)
+        {
+          entityList->selected[0] = i; // change to be managed later
+          break;
+        }
+      }
+      if (!collision.hit)
+      {
+        entityList->selected[0] = -1;
       }
     }
-    if (!collision.hit)
+    else if (camera->mouseButton == MOUSE_BUTTON_RIGHT)
     {
-      selectedId = -1;
-    }
-  }
-  else if (camera->mouseButton == MOUSE_BUTTON_RIGHT)
-    {
-      if (selectedId >= 0)
+      if (entityList->selected[0] >= 0)
       {
         Vector3 target = GetRayPointTerrain(mRay, terrainMap, camera->NearPlane, camera->FarPlane);
-        MoveEntity((Vector2){target.x, target.z}, selectedId, entityList);
+        MoveEntity((Vector2){target.x, target.z}, entityList->selected[0], entityList);
       }
     }
+  }
   for (size_t i = 0; i < entityList->size; i++)
   {
     // update entities here then mark dirty
-    Entity *Ent = &entityList->entities[i];
-    if (Ent->isMoving)
+    Entity *ent = &entityList->entities[i];
+    if (ent->isMoving)
     {
-      if (Vector2Equals((Vector2){Ent->position.x, Ent->position.z}, Ent->targetPos)){
-        Ent->isMoving = false;
-      }
-      float adjustedSpeed = Ent->moveSpeed * GetFrameTime(); //pass to update loop later
-      if (Ent->isMoving)
+      if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->targetPos))
       {
-        Vector2 moveVec = Vector2Scale(Vector2Normalize(Vector2Subtract((Vector2){Ent->position.x, Ent->position.z}, Ent->targetPos)), adjustedSpeed);
-        Ent->position = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, Ent->position);
+        ent->isMoving = false;
       }
+      else
+      {
+        float adjustedSpeed = ent->moveSpeed * dt;
+        Vector2 rawDist = Vector2Scale(Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z}), adjustedSpeed);
+        Vector2 moveVec = Vector2Scale(Vector2Normalize(Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z})), adjustedSpeed);
+        if (Vector2Length(rawDist) < Vector2Length(moveVec))
+        {
+          moveVec = rawDist;
+        }
+        #if 0
+        TraceLog(LOG_INFO, TextFormat("x: %f z: %f", moveVec.x, moveVec.y));
+        #endif
+        ent->position = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
+      }
+      ent->isDirty = true;
     }
-    
-    if (Ent->isDirty)
+
+    if (ent->isDirty)
     {
-      Vector3 adjustedPos = (Vector3){.x = Ent->position.x,
-                                      .z = Ent->position.z,
-                                      .y = Ent->position.y + GetAdjustedHeight(Ent->position, terrainMap)};
-      Ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(Ent->rotation),
-                                             MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
-                                                            MatrixScale(Ent->scale.x, Ent->scale.y, Ent->scale.z)));
-      Ent->bbox = DeriveBBox(&adjustedPos, &Ent->dimensions, &Ent->scale);
-      Ent->isDirty = false;
+      Vector3 adjustedPos = (Vector3){.x = ent->position.x,
+                                      .z = ent->position.z,
+                                      .y = ent->position.y + GetAdjustedHeight(ent->position, terrainMap)};
+      ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(ent->rotation),
+                                        MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
+                                                       MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
+      ent->bbox = DeriveBBox(&adjustedPos, &ent->dimensions, &ent->scale);
+      ent->isDirty = false;
     }
   }
 }
