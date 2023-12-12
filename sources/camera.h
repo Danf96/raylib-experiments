@@ -18,16 +18,22 @@ typedef enum
   ROTATE_LEFT,
   ROTATE_UP,
   ROTATE_DOWN,
-  SPRINT,
+  MODIFIER_1,
   LAST_CONTROL
 } RTSCameraControls;
 
+enum RTSActions
+{
+  ADDITIONAL_MODIFIER = (1<<0),
+  ATTACK_MODIFIER = (1<<1),
+};
 
 typedef struct
 {
   int ControlsKeys[LAST_CONTROL];
 
   uint8_t mouseButton;
+  uint8_t modifierKey;
   bool isButtonPressed;
 
   // the speed in units/second to move
@@ -59,7 +65,7 @@ typedef struct
 
 } RTSCamera;
 
-void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position);
+void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *terrainMap);
 
 void RTSCameraUseMouse(RTSCamera *camera, bool useMouse, int button);
 

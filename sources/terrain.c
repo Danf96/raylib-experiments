@@ -154,8 +154,6 @@ Vector3 TerrainXZToWorld(Vector3 terrainPos, TerrainMap *terrainMap)
                    .z = terrainPos.z - (terrainMap->maxHeight / 2.0f)};
 }
 
-// FIXME: height bugs out on certain hills when using a cube mesh
-// bugged coordinates: X = 653.7822 Z = 612.9232
 float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap)
 {
   Vector3 terrainPos = WorldXZToTerrain(worldPos, terrainMap);

@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "camera.h"
 #include "raylib.h"
@@ -21,7 +22,7 @@ static void ResizeRTSOrbitCameraView(RTSCamera *camera)
     camera->FOV.x = camera->FOV.y * (width / height);
 }
 
-void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position)
+void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *terrainMap)
 {
   if (!camera)
     return;
@@ -39,8 +40,9 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position)
   camera->ControlsKeys[10] = KEY_LEFT_SHIFT;
 
   camera->mouseButton = 0;
+  camera->modifierKey = 0;
 
-  camera->MoveSpeed = (Vector3){3, 3, 3};
+  camera->MoveSpeed = (Vector3){8, 8, 8};
   camera->RotationSpeed = (Vector2){90, 90};
 
   camera->MouseSensitivity = 600;
@@ -55,6 +57,7 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position)
   camera->ViewAngles = (Vector2){0, 0};
 
   camera->CameraPosition = position;
+  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
   camera->FOV.y = fovY;
 
   camera->ViewCamera.target = position;
@@ -96,8 +99,6 @@ static float GetSpeedForAxis(RTSCamera *camera, RTSCameraControls axis, float sp
     return 0;
 
   float factor = 1.0f;
-  if (IsKeyDown(camera->ControlsKeys[SPRINT]))
-    factor = 2;
 
   if (IsKeyDown(camera->ControlsKeys[axis]))
     return speed * GetFrameTime() * factor;
@@ -107,7 +108,6 @@ static float GetSpeedForAxis(RTSCamera *camera, RTSCameraControls axis, float sp
 
 void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 {
-  // NOTE: left and right mouse buttons showing no effect
   if (!camera)
     return;
 
@@ -117,6 +117,7 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   bool isPressed = false;
 
+  // TODO: add delay to avoid immediately selecting and deselecting a unit
   if (camera->Focused)
   {
     for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_MIDDLE; button++)
@@ -134,8 +135,17 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
         break;
       }
     }
+    if (IsKeyDown(camera->ControlsKeys[MODIFIER_1]))
+    {
+      camera->modifierKey = ADDITIONAL_MODIFIER;
+    }
+    else
+    {
+      camera->modifierKey = 0;
+    }
   }
-  else (camera->isButtonPressed = false); //no buttons registered when not focused
+  else
+    (camera->isButtonPressed = false); // no buttons registered when not focused
 
   Vector2 mousePositionDelta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
@@ -187,7 +197,8 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   // Update zoom
   camera->CameraPullbackDistance += (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
-  if (camera->CameraPullbackDistance < 1) camera->CameraPullbackDistance = 1;
+  if (camera->CameraPullbackDistance < 1)
+    camera->CameraPullbackDistance = 1;
 
   Vector3 camPos = {.z = camera->CameraPullbackDistance};
 
@@ -197,14 +208,17 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   camPos = Vector3Transform(camPos, mat);
   moveVec = Vector3Transform(moveVec, rotMat);
-
+#if 0
+  if (memcmp(&moveVec, &(Vector3){}, sizeof(moveVec)) != 0 || memcmp(&camPos, &(Vector3){}, sizeof(camPos) != 0)) 
+  {
+#endif
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
-  
   camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
-  
   camera->ViewCamera.target = camera->CameraPosition;
-  camera->ViewCamera.position =
-      Vector3Add(camera->CameraPosition, camPos); // offsets camera from target
+  camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos);
+#if 0
+  }
+#endif
 }
 
 static void SetupCamera(RTSCamera *camera, float aspect)

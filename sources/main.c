@@ -103,11 +103,17 @@ int main(void) {
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
   }
+  newEnt.position.x = 10;
+  newEnt.position.y = 10;
+  
+  if (AddEntity(&entityList, &newEnt)) {
+    return EXIT_FAILURE;
+  }
 
   SetTargetFPS(60);
 
   RTSCamera camera;
-  RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0});
+  RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
   camera.ViewAngles.y = -15 * DEG2RAD;
 
   float simAccumulator = 0;
@@ -150,11 +156,14 @@ int main(void) {
       }
     }
     // draw selection boxes 
-    for (size_t i = 0; i < (sizeof(entityList.selected)/sizeof(entityList.selected[0])); i++)
+    for (size_t i = 0; i < GAME_MAX_UNITS; i++)
     {
-      if (entityList.selected[i] < 0) break;
-      Entity *ent = &entityList.entities[i];
-      DrawCubeWires(Vector3Transform(Vector3Zero() ,ent->worldMatrix), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+      if (entityList.selected[i] >= 0)
+      {
+        short selectedId = entityList.selected[i];
+        Entity *ent = &entityList.entities[selectedId];
+        DrawCubeWires(Vector3Transform(Vector3Zero() ,ent->worldMatrix), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+      }
     }
     
 

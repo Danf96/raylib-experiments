@@ -9,6 +9,7 @@
 #include "terrain.h"
 #include "camera.h"
 
+#define GAME_MAX_UNITS 40
 
 typedef enum
 {
@@ -54,8 +55,9 @@ typedef struct
   size_t capacity;
   size_t size;
   Entity *entities;
-  short selected[10];
+  short selected[GAME_MAX_UNITS];
 } EntityList;
+
 
 extern Vector2 terrainOffset;
 
@@ -68,3 +70,8 @@ BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
 
 void MoveEntity(Vector2 position, short entityId, EntityList *entityList);
 
+void EntitySelectedAdd(short selectedId, EntityList *entityList);
+
+void EntitySelectedRemoveAll(EntityList *entityList);
+
+void EntitySelectedRemove(short selectedId, EntityList *entityList);
