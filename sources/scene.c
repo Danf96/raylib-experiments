@@ -47,30 +47,29 @@ EntityList CreateEntityList(size_t capacity)
   return newList;
 }
 
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera, float dt)
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera)
 {
-  Ray mRay = {};
+  // iterate over entitylist here for attacking entities, check attack ranges
   if (camera->Focused)
   {
+    Ray ray = GetMouseRay(GetMousePosition(), camera->ViewCamera); // we should be always getting mouse data (can change to attack icon later when mousing over enemy)
     if (camera->IsButtonPressed && camera->ClickTimer <= 0)
     {
-      if (camera->MouseButton == MOUSE_BUTTON_LEFT || camera->MouseButton == MOUSE_BUTTON_RIGHT)
-      {
-        mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
-      }
       if (camera->MouseButton == MOUSE_BUTTON_LEFT)
       {
-        short id = EntityGetSelectedId(mRay, entityList);
+        short id = EntityGetSelectedId(ray, entityList);
         if (id >= 0)
         {
-          if (camera->ModifierKey & ADDITIONAL_MODIFIER) {
-              EntitySelectedAdd(id, entityList);
-            }
-            else {
-              EntitySelectedRemoveAll(entityList);
-              EntitySelectedAdd(id, entityList);
-            }
-        } 
+          if (camera->ModifierKey & ADDITIONAL_MODIFIER)
+          {
+            EntitySelectedAdd(id, entityList);
+          }
+          else
+          {
+            EntitySelectedRemoveAll(entityList);
+            EntitySelectedAdd(id, entityList);
+          }
+        }
         else
         {
           EntitySelectedRemoveAll(entityList);
@@ -78,12 +77,20 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
       }
       else if (camera->MouseButton == MOUSE_BUTTON_RIGHT)
       {
-        for (int i = 0; i < GAME_MAX_SELECTED; i++)
+
+        if (camera->ModifierKey & ATTACK_MODIFIER)
         {
-          if (entityList->selected[i] >= 0)
+          // TODO: write function for attacking, maybe getting the entity ID of the target so that target positions can be updated as one entity moves over
+        }
+        else
+        {
+          Vector3 target = GetRayPointTerrain(ray, terrainMap, camera->NearPlane, camera->FarPlane);
+          for (int i = 0; i < GAME_MAX_SELECTED; i++)
           {
-            Vector3 target = GetRayPointTerrain(mRay, terrainMap, camera->NearPlane, camera->FarPlane);
-            MoveEntity((Vector2){target.x, target.z}, entityList->selected[i], entityList);
+            if (entityList->selected[i] >= 0)
+            {
+              MoveEntity((Vector2){target.x, target.z}, entityList->selected[i], entityList);
+            }
           }
         }
       }
@@ -94,17 +101,17 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
   {
     // update entities here then mark dirty
     Entity *ent = &entityList->entities[i];
-    if (ent->isMoving)
+    if (ent->state & ENT_IS_MOVING)
     {
       if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->targetPos))
       {
-        ent->isMoving = false;
+        ent->state ^= ENT_IS_MOVING;
       }
       else
       {
-        float adjustedSpeed = ent->moveSpeed * dt;
-        Vector2 rawDist = Vector2Scale(Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z}), adjustedSpeed);
-        Vector2 moveVec = Vector2Scale(Vector2Normalize(Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z})), adjustedSpeed);
+        float adjustedSpeed = ent->moveSpeed;
+        Vector2 rawDist = Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z});
+        Vector2 moveVec = Vector2Scale(Vector2Normalize(rawDist), adjustedSpeed);
         if (Vector2Length(rawDist) < Vector2Length(moveVec))
         {
           moveVec = rawDist;
@@ -146,20 +153,29 @@ BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
 
 void MoveEntity(Vector2 position, short entityId, EntityList *entityList)
 {
+  // used purely for move orders, negates attack
   Entity *targetEntity = &entityList->entities[entityId];
   targetEntity->targetPos = position;
-  targetEntity->isMoving = true;
+  targetEntity->state |= ENT_IS_MOVING;
 }
 
-short EntityGetSelectedId(Ray ray, EntityList *entityList) {
+short EntityGetSelectedId(Ray ray, EntityList *entityList)
+{
+  float closestHit = __FLT_MAX__;
+  short selectedId = -1;
   for (size_t i = 0; i < entityList->size; i++)
   {
     RayCollision collision = GetRayCollisionBox(ray, entityList->entities[i].bbox);
-    if (collision.hit) {
-      return i;
+    if (collision.hit)
+    {
+      if (collision.distance < closestHit)
+      {
+        selectedId = i;
+        closestHit = collision.distance;
+      }
     }
   }
-  return -1;
+  return selectedId;
 }
 
 void EntitySelectedAdd(short selectedId, EntityList *entityList)

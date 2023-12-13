@@ -18,6 +18,14 @@ typedef enum
   ENT_TYPE_ACTOR,
 } EntityType;
 
+typedef enum
+{
+  ENT_IDLE = 0,
+  ENT_IS_MOVING = (1<<1),
+  ENT_IS_ATTACKING = (1<<2),
+  ENT_DEAD = (1<<3),
+} EntityState;
+
 typedef struct
 {
   short id;
@@ -25,7 +33,6 @@ typedef struct
   Vector3 scale;
   Vector3 position;
   Vector3 dimensions;
-  Vector3 velocity;
   Vector3 rotation;
   Vector2 targetPos;
   float moveSpeed;
@@ -34,7 +41,7 @@ typedef struct
   short int materialHandle;
   EntityType type;
   BoundingBox bbox;
-  bool isMoving;
+  EntityState state;
   bool isDirty;
 } Entity;
 
@@ -65,7 +72,8 @@ extern Vector2 terrainOffset;
 int AddEntity(EntityList *entityList, EntityCreate *entityCreate);
 
 EntityList CreateEntityList(size_t capacity);
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera, float dt);
+
+void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
 
 BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
 

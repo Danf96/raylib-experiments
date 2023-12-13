@@ -98,7 +98,7 @@ int main(void) {
                      .dimensions = (Vector3){1, 1, 1},
                      .materialHandle = 0,
                      .typeHandle = 1,
-                     .moveSpeed = 10.f,
+                     .moveSpeed = 0.1f,
                      .type = ENT_TYPE_ACTOR};
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
@@ -110,27 +110,29 @@ int main(void) {
     return EXIT_FAILURE;
   }
 
-  SetTargetFPS(60);
+  SetTargetFPS(200);
 
   RTSCamera camera;
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
   camera.ViewAngles.y = -15 * DEG2RAD;
 
   float simAccumulator = 0;
-  float simDt = 1.f / 30.f; // how many times a second calculations should be made
+  float simDt = 1.f / 60.f; // how many times a second calculations should be made
 
   //--------------------------------------------------------------------------
   // Main game loop
   //--------------------------------------------------------------------------
-  while (!WindowShouldClose()) {
+  while (!WindowShouldClose()) 
+  {
     // Detect window close button or ESC key
     //----------------------------------------------------------------------
     // Update
     //----------------------------------------------------------------------
     RTSCameraUpdate(&camera, &terrainMap);
     simAccumulator += GetFrameTime();
-    while (simAccumulator >= simDt) {
-      UpdateEntities(&entityList, &terrainMap, &camera, GetFrameTime());
+    while (simAccumulator >= simDt) 
+    {
+      UpdateEntities(&entityList, &terrainMap, &camera);
       simAccumulator -= simDt;
     }
 
