@@ -39,8 +39,10 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *
   camera->ControlsKeys[9] = KEY_DOWN;
   camera->ControlsKeys[10] = KEY_LEFT_SHIFT;
 
-  camera->mouseButton = 0;
-  camera->modifierKey = 0;
+  camera->MouseButton = 0;
+  camera->ModifierKey = 0;
+
+  camera->ClickTimer = 0;
 
   camera->MoveSpeed = (Vector3){8, 8, 8};
   camera->RotationSpeed = (Vector2){90, 90};
@@ -48,7 +50,8 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *
   camera->MouseSensitivity = 600;
 
   camera->MinimumViewY = -89.0f;
-  camera->MaximumViewY = 0.0f;
+  camera->MaximumViewY = -15.0f;
+
 
   camera->Focused = IsWindowFocused();
 
@@ -117,35 +120,34 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   bool isPressed = false;
 
-  // TODO: add delay to avoid immediately selecting and deselecting a unit
   if (camera->Focused)
   {
     for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_MIDDLE; button++)
     {
       if (IsMouseButtonDown(button))
       {
-        camera->mouseButton = button;
-        camera->isButtonPressed = true;
+        camera->MouseButton = button;
+        camera->IsButtonPressed = true;
         break;
       }
       else if (IsMouseButtonReleased(button))
       {
-        camera->mouseButton = button;
-        camera->isButtonPressed = false;
+        camera->MouseButton = button;
+        camera->IsButtonPressed = false;
         break;
       }
     }
     if (IsKeyDown(camera->ControlsKeys[MODIFIER_1]))
     {
-      camera->modifierKey = ADDITIONAL_MODIFIER;
+      camera->ModifierKey = ADDITIONAL_MODIFIER;
     }
     else
     {
-      camera->modifierKey = 0;
+      camera->ModifierKey = 0;
     }
   }
   else
-    (camera->isButtonPressed = false); // no buttons registered when not focused
+    (camera->IsButtonPressed = false); // no buttons registered when not focused
 
   Vector2 mousePositionDelta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
@@ -158,7 +160,7 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
       GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
       GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
 
-  bool rotateMouse = (camera->mouseButton == MOUSE_BUTTON_MIDDLE && camera->isButtonPressed);
+  bool rotateMouse = (camera->MouseButton == MOUSE_BUTTON_MIDDLE && camera->IsButtonPressed);
   if (rotateMouse)
   {
     HideCursor();
@@ -219,6 +221,7 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 #if 0
   }
 #endif
+  camera->ClickTimer -= GetFrameTime();
 }
 
 static void SetupCamera(RTSCamera *camera, float aspect)

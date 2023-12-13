@@ -9,7 +9,8 @@
 #include "terrain.h"
 #include "camera.h"
 
-#define GAME_MAX_UNITS 40
+#define GAME_MAX_UNITS 100
+#define GAME_MAX_SELECTED 12
 
 typedef enum
 {
@@ -55,7 +56,7 @@ typedef struct
   size_t capacity;
   size_t size;
   Entity *entities;
-  short selected[GAME_MAX_UNITS];
+  short selected[GAME_MAX_SELECTED];
 } EntityList;
 
 
@@ -75,3 +76,5 @@ void EntitySelectedAdd(short selectedId, EntityList *entityList);
 void EntitySelectedRemoveAll(EntityList *entityList);
 
 void EntitySelectedRemove(short selectedId, EntityList *entityList);
+
+short EntityGetSelectedId(Ray ray, EntityList *entityList);

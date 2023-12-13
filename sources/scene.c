@@ -52,41 +52,33 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
   Ray mRay = {};
   if (camera->Focused)
   {
-    if (camera->isButtonPressed)
+    if (camera->IsButtonPressed && camera->ClickTimer <= 0)
     {
-      if (camera->mouseButton == MOUSE_BUTTON_LEFT || camera->mouseButton == MOUSE_BUTTON_RIGHT)
+      if (camera->MouseButton == MOUSE_BUTTON_LEFT || camera->MouseButton == MOUSE_BUTTON_RIGHT)
       {
         mRay = GetMouseRay(GetMousePosition(), camera->ViewCamera);
       }
-      if (camera->mouseButton == MOUSE_BUTTON_LEFT)
+      if (camera->MouseButton == MOUSE_BUTTON_LEFT)
       {
-        
-        bool collisionFound = false;
-        for (size_t i = 0; i < entityList->size; i++)
+        short id = EntityGetSelectedId(mRay, entityList);
+        if (id >= 0)
         {
-          RayCollision collision = GetRayCollisionBox(mRay, entityList->entities[i].bbox);
-          if (collision.hit)
-          {
-            if (camera->modifierKey & ADDITIONAL_MODIFIER) {
-              EntitySelectedAdd(i, entityList);
+          if (camera->ModifierKey & ADDITIONAL_MODIFIER) {
+              EntitySelectedAdd(id, entityList);
             }
             else {
               EntitySelectedRemoveAll(entityList);
-              EntitySelectedAdd(i, entityList);
+              EntitySelectedAdd(id, entityList);
             }
-            collisionFound = true;
-            break;
-          }
-        }
-        if (!collisionFound)
+        } 
+        else
         {
           EntitySelectedRemoveAll(entityList);
         }
-        
       }
-      else if (camera->mouseButton == MOUSE_BUTTON_RIGHT)
+      else if (camera->MouseButton == MOUSE_BUTTON_RIGHT)
       {
-        for (int i = 0; i < GAME_MAX_UNITS; i++)
+        for (int i = 0; i < GAME_MAX_SELECTED; i++)
         {
           if (entityList->selected[i] >= 0)
           {
@@ -95,6 +87,7 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
           }
         }
       }
+      camera->ClickTimer = 0.2f; // add delay to input
     }
   }
   for (size_t i = 0; i < entityList->size; i++)
@@ -158,9 +151,20 @@ void MoveEntity(Vector2 position, short entityId, EntityList *entityList)
   targetEntity->isMoving = true;
 }
 
+short EntityGetSelectedId(Ray ray, EntityList *entityList) {
+  for (size_t i = 0; i < entityList->size; i++)
+  {
+    RayCollision collision = GetRayCollisionBox(ray, entityList->entities[i].bbox);
+    if (collision.hit) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 void EntitySelectedAdd(short selectedId, EntityList *entityList)
 {
-  for (int i = 0; i < GAME_MAX_UNITS; i++)
+  for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
     if (entityList->selected[i] == selectedId)
     {
@@ -182,7 +186,7 @@ void EntitySelectedRemoveAll(EntityList *entityList)
 
 void EntitySelectedRemove(short selectedId, EntityList *entityList)
 {
-  for (int i = 0; i < GAME_MAX_UNITS; i++)
+  for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
     if (entityList->selected[i] == selectedId)
     {

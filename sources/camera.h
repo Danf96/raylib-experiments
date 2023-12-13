@@ -32,9 +32,9 @@ typedef struct
 {
   int ControlsKeys[LAST_CONTROL];
 
-  uint8_t mouseButton;
-  uint8_t modifierKey;
-  bool isButtonPressed;
+  uint8_t MouseButton;
+  uint8_t ModifierKey;
+  bool IsButtonPressed;
 
   // the speed in units/second to move
   Vector3 MoveSpeed;
@@ -42,6 +42,8 @@ typedef struct
   Vector2 RotationSpeed;
 
   float MouseSensitivity;
+
+  float ClickTimer;
 
   float MinimumViewY;
   float MaximumViewY;

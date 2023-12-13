@@ -41,16 +41,16 @@ int main(void) {
   InitWindow(screenWidth, screenHeight, "raylib - demo");
 
   // textures, models, and shaders
-  Texture2D bill = LoadTexture("../resources/billboard.png");
   #if 0
+  Texture2D bill = LoadTexture("../resources/billboard.png");
   Shader alphaDiscard = LoadShader(NULL, "../shaders/alphaDiscard.fs");
-  #endif
-
   GenTextureMipmaps(&bill);
   SetTextureWrap(bill, TEXTURE_WRAP_CLAMP);
   SetTextureFilter(bill, TEXTURE_FILTER_ANISOTROPIC_16X);
+  #endif
 
-  Model skybox = GetSkybox("../resources/agent.png");
+
+  Model skybox = GetSkybox("../resources/ACID");
 
   // terrain
   Image discMap = LoadImage("../resources/discmap.BMP");
@@ -98,7 +98,7 @@ int main(void) {
                      .dimensions = (Vector3){1, 1, 1},
                      .materialHandle = 0,
                      .typeHandle = 1,
-                     .moveSpeed = 6.f,
+                     .moveSpeed = 10.f,
                      .type = ENT_TYPE_ACTOR};
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
@@ -156,7 +156,7 @@ int main(void) {
       }
     }
     // draw selection boxes 
-    for (size_t i = 0; i < GAME_MAX_UNITS; i++)
+    for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
     {
       if (entityList.selected[i] >= 0)
       {
@@ -189,7 +189,7 @@ int main(void) {
                         camera.CameraPosition.y,
                         camera.CameraPosition.z + terrainOffset.y),
              10, 30, 20, WHITE);
-    DrawText(TextFormat("%s", mouseStrings[camera.mouseButton]), 100, 100, 20, GRAY);
+    DrawText(TextFormat("%s", mouseStrings[camera.MouseButton]), 100, 100, 20, GRAY);
 
     EndDrawing();
   }
@@ -214,8 +214,9 @@ int main(void) {
   UnloadTexture(terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture);
   // Free entities here
   MemFree(entityList.entities);
-
+  # if 0
   UnloadTexture(bill);
+  #endif
 
   CloseWindow();
 
