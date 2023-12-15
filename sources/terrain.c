@@ -208,8 +208,8 @@ Vector3 GetRayPointTerrain(Ray ray, TerrainMap *terrainMap, float zNear, float z
     float heightY = terrainMap->value[(int)floor(p.x) * terrainMap->maxWidth + (int)floor(p.z)];
     if (p.y < heightY)
     {
-      // NOTE: does redundant calulcations currently, could move to a new function
-      p.y = GetAdjustedHeight(p, terrainMap);
+      // NOTE: does redundant calulcations currently, could move to a new function (currently broken when height is adjusted and camera is facing directly above unit)
+      // p.y = GetAdjustedHeight(p, terrainMap);
       return TerrainXZToWorld(p, terrainMap);
     }
   }

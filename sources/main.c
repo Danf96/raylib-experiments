@@ -76,11 +76,13 @@ int main(void) {
 
   // cube for testing
   Mesh cube = GenMeshCube(1, 1, 1);
+  Mesh pointer = GenMeshCone(0.5, 1, 5);
 
   MeshList meshList = {.capacity = 10, .size = 2};
   meshList.mesh = MemAlloc(sizeof(*meshList.mesh) * 10);
   meshList.mesh[0] = terrainMesh;
   meshList.mesh[1] = cube;
+  meshList.mesh[2] = pointer;
 
   MaterialList matList = {.capacity = 10, .size = 1};
   matList.mat = MemAlloc(sizeof(*matList.mat) * 10);
@@ -103,8 +105,10 @@ int main(void) {
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
   }
-  newEnt.position.x = 10;
+  newEnt.position.x = 0;
   newEnt.position.y = 10;
+  newEnt.typeHandle = 2;
+  newEnt.rotation.x = 90.f * DEG2RAD;
   
   if (AddEntity(&entityList, &newEnt)) {
     return EXIT_FAILURE;
@@ -114,7 +118,7 @@ int main(void) {
 
   RTSCamera camera;
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
-  camera.ViewAngles.y = -15 * DEG2RAD;
+  // camera.ViewAngles.y = -15 * DEG2RAD;
 
   float simAccumulator = 0;
   float simDt = 1.f / 60.f; // how many times a second calculations should be made

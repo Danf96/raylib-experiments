@@ -49,22 +49,25 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *
 
   camera->MouseSensitivity = 600;
 
-  camera->MinimumViewY = -89.0f;
+  camera->MinimumViewY = -50.0f;
   camera->MaximumViewY = -15.0f;
 
 
   camera->Focused = IsWindowFocused();
 
-  camera->CameraPullbackDistance = 5;
+  camera->CameraPullbackDistance = 15.f;
 
-  camera->ViewAngles = (Vector2){0, 0};
+  camera->ViewAngles = (Vector2){180.f * DEG2RAD, -45.f * DEG2RAD};
 
   camera->CameraPosition = position;
   camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
   camera->FOV.y = fovY;
 
+  Matrix tiltMat = MatrixRotateX(camera->ViewAngles.y);
+
   camera->ViewCamera.target = position;
   camera->ViewCamera.position = Vector3Add(camera->ViewCamera.target, (Vector3){0, 0, camera->CameraPullbackDistance});
+  camera->ViewCamera.position = Vector3Transform(camera->ViewCamera.position, tiltMat);
   camera->ViewCamera.up = (Vector3){0.0f, 1.0f, 0.0f};
   camera->ViewCamera.fovy = fovY;
   camera->ViewCamera.projection = CAMERA_PERSPECTIVE;
@@ -210,17 +213,12 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
 
   camPos = Vector3Transform(camPos, mat);
   moveVec = Vector3Transform(moveVec, rotMat);
-#if 0
-  if (memcmp(&moveVec, &(Vector3){}, sizeof(moveVec)) != 0 || memcmp(&camPos, &(Vector3){}, sizeof(camPos) != 0)) 
-  {
-#endif
+
   camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
   camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
   camera->ViewCamera.target = camera->CameraPosition;
   camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos);
-#if 0
-  }
-#endif
+
   camera->ClickTimer -= GetFrameTime();
 }
 

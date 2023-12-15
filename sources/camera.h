@@ -54,7 +54,6 @@ typedef struct
 
   Camera ViewCamera;
 
-  Vector3 ViewForward;
 
   Vector2 FOV;
 

@@ -100,7 +100,6 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
   for (size_t i = 0; i < entityList->size; i++)
   {
     // update entities here then mark dirty
-    // NOTE: CHECK COLLISIONS HERE
     Entity *ent = &entityList->entities[i];
     if (ent->state & ENT_IS_MOVING)
     {
@@ -117,16 +116,15 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
         {
           moveVec = rawDist;
         }
-#if 0
-        TraceLog(LOG_INFO, TextFormat("x: %f z: %f", moveVec.x, moveVec.y));
-#endif
         // check collisions based purely on positions, keep bbox for only mouse selections
+        // rotations not working correctly
         Vector3 newPos = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
+        ent->rotation.y = Vector2Angle(Vector2Normalize(rawDist), (Vector2){0.f, 1.f});
         ent->position = newPos;
         // position will be adjusted within EntityCheckCollision
         EntityCheckCollision(ent, entityList);
+        ent->isDirty = true;
       }
-      ent->isDirty = true;
     }
 
     if (ent->isDirty)
@@ -141,7 +139,7 @@ void EntityUpdateDirty(Entity *ent, TerrainMap *terrainMap)
                                   .z = ent->position.z,
                                   .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
   ent->position = adjustedPos;
-  ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(ent->rotation),
+  ent->worldMatrix = MatrixMultiply(MatrixRotateZYX(ent->rotation),
                                     MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
                                                    MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
   ent->bbox = EntityBBoxDerive(&adjustedPos, &ent->dimensions, &ent->scale);
@@ -234,9 +232,9 @@ void EntityCheckCollision(Entity *ent, EntityList *entityList)
     Entity *targetEnt = &entityList->entities[i];
     if (ent->id == targetEnt->id) continue;
     Rectangle targetRec = (Rectangle){.x = targetEnt->position.x - (targetEnt->dimensions.x / 2.0f),
-                                    .y = targetEnt->position.z - (targetEnt->dimensions.z / 2.0f), 
-                                    .width = targetEnt->dimensions.x, 
-                                    .height = targetEnt->dimensions.z};
+                                      .y = targetEnt->position.z - (targetEnt->dimensions.z / 2.0f), 
+                                      .width = targetEnt->dimensions.x, 
+                                      .height = targetEnt->dimensions.z};
     bool collision = CheckCollisionRecs(sourceRec, targetRec);
     if (collision) 
     {
