@@ -89,7 +89,7 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
           {
             if (entityList->selected[i] >= 0)
             {
-              MoveEntity((Vector2){target.x, target.z}, entityList->selected[i], entityList);
+              EntitySetMoving((Vector2){target.x, target.z}, entityList->selected[i], entityList);
             }
           }
         }
@@ -100,6 +100,7 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
   for (size_t i = 0; i < entityList->size; i++)
   {
     // update entities here then mark dirty
+    // NOTE: CHECK COLLISIONS HERE
     Entity *ent = &entityList->entities[i];
     if (ent->state & ENT_IS_MOVING)
     {
@@ -119,27 +120,34 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
 #if 0
         TraceLog(LOG_INFO, TextFormat("x: %f z: %f", moveVec.x, moveVec.y));
 #endif
-        ent->position = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
+        // check collisions based purely on positions, keep bbox for only mouse selections
+        Vector3 newPos = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
+        ent->position = newPos;
+        // position will be adjusted within EntityCheckCollision
+        EntityCheckCollision(ent, entityList);
       }
       ent->isDirty = true;
     }
 
     if (ent->isDirty)
     {
-      Vector3 adjustedPos = (Vector3){.x = ent->position.x,
-                                      .z = ent->position.z,
-                                      .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
-      ent->position = adjustedPos;
-      ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(ent->rotation),
-                                        MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
-                                                       MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
-      ent->bbox = DeriveBBox(&adjustedPos, &ent->dimensions, &ent->scale);
-      ent->isDirty = false;
+      EntityUpdateDirty(ent, terrainMap);
     }
   }
 }
-
-BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
+void EntityUpdateDirty(Entity *ent, TerrainMap *terrainMap)
+{
+  Vector3 adjustedPos = (Vector3){.x = ent->position.x,
+                                  .z = ent->position.z,
+                                  .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
+  ent->position = adjustedPos;
+  ent->worldMatrix = MatrixMultiply(MatrixRotateXYZ(ent->rotation),
+                                    MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
+                                                   MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
+  ent->bbox = EntityBBoxDerive(&adjustedPos, &ent->dimensions, &ent->scale);
+  ent->isDirty = false;
+}
+BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
 {
   return (BoundingBox){
       (Vector3){position->x - (dimensions->x * scale->x) / 2.0f,
@@ -151,7 +159,9 @@ BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
   };
 }
 
-void MoveEntity(Vector2 position, short entityId, EntityList *entityList)
+
+
+void EntitySetMoving(Vector2 position, short entityId, EntityList *entityList)
 {
   // used purely for move orders, negates attack
   Entity *targetEntity = &entityList->entities[entityId];
@@ -208,6 +218,39 @@ void EntitySelectedRemove(short selectedId, EntityList *entityList)
     {
       entityList->selected[i] = -1;
       break;
+    }
+  }
+}
+void EntityCheckCollision(Entity *ent, EntityList *entityList)
+{
+  // Do not use bbox for these calculations, those only get updated when entity is marked dirty
+  Rectangle sourceRec = (Rectangle){.x = ent->position.x - (ent->dimensions.x / 2.0f),
+                                    .y = ent->position.z - (ent->dimensions.z / 2.0f), 
+                                    .width = ent->dimensions.x, 
+                                    .height = ent->dimensions.z};
+
+  for (int i = 0; i < entityList->size; i++) 
+  {
+    Entity *targetEnt = &entityList->entities[i];
+    if (ent->id == targetEnt->id) continue;
+    Rectangle targetRec = (Rectangle){.x = targetEnt->position.x - (targetEnt->dimensions.x / 2.0f),
+                                    .y = targetEnt->position.z - (targetEnt->dimensions.z / 2.0f), 
+                                    .width = targetEnt->dimensions.x, 
+                                    .height = targetEnt->dimensions.z};
+    bool collision = CheckCollisionRecs(sourceRec, targetRec);
+    if (collision) 
+    {
+      Rectangle collisionRec = GetCollisionRec(sourceRec, targetRec);
+      // if width smaller than height, move entity on X axis (pick shortest intersection)
+      if (collisionRec.width < collisionRec.height) {
+        float direction = ent->position.x < collisionRec.x ? -1 : 1;
+        ent->position.x += (collisionRec.width) * direction;
+      }
+      else
+      {
+        float direction = ent->position.z < collisionRec.y ? -1 : 1;
+        ent->position.z += (collisionRec.height) * direction;
+      }
     }
   }
 }

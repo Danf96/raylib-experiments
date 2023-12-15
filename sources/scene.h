@@ -75,9 +75,9 @@ EntityList CreateEntityList(size_t capacity);
 
 void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
 
-BoundingBox DeriveBBox(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
+BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
 
-void MoveEntity(Vector2 position, short entityId, EntityList *entityList);
+void EntitySetMoving(Vector2 position, short entityId, EntityList *entityList);
 
 void EntitySelectedAdd(short selectedId, EntityList *entityList);
 
@@ -86,3 +86,7 @@ void EntitySelectedRemoveAll(EntityList *entityList);
 void EntitySelectedRemove(short selectedId, EntityList *entityList);
 
 short EntityGetSelectedId(Ray ray, EntityList *entityList);
+
+void EntityUpdateDirty(Entity *ent, TerrainMap *terrainMap);
+
+void EntityCheckCollision(Entity *ent, EntityList *entityList);

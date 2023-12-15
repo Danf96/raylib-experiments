@@ -1,7 +1,51 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 project(my_demo)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_C_STANDARD 11)
+
+# Dependencies
+set(RAYLIB_VERSION 5.0)
+find_package(raylib ${RAYLIB_VERSION} QUIET) # QUIET or REQUIRED
+add_definitions(-DSUPPORT_FILEFORMAT_BMP)
+if (NOT raylib_FOUND) # If there's none, fetch and build raylib
+  include(FetchContent)
+  FetchContent_Declare(
+    raylib
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    URL https://github.com/raysan5/raylib/archive/refs/tags/${RAYLIB_VERSION}.tar.gz
+  )
+  FetchContent_GetProperties(raylib)
+  if (NOT raylib_POPULATED) # Have we downloaded raylib yet?
+    set(FETCHCONTENT_QUIET NO)
+    FetchContent_Populate(raylib)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
+    add_subdirectory(${raylib_SOURCE_DIR} ${raylib_BINARY_DIR})
+  endif()
+endif()
+
+# Our Project
+
+add_executable(${PROJECT_NAME})
+#set(raylib_VERBOSE 1)
+target_link_libraries(${PROJECT_NAME} raylib)
+
+# Web Configurations
+if (${PLATFORM} STREQUAL "Web")
+    # Tell Emscripten to build an example.html file.
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+endif()
+
+# Checks if OSX and links appropriate frameworks (Only required on MacOS)
+if (APPLE)
+    target_link_libraries(${PROJECT_NAME} "-framework IOKit")
+    target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
+    target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
+endif()
+
+# Sanitizers allegedly won't work on Windows
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fsanitize=undefined")
 
 set(CMAKE_C_CLANG_TIDY
   clang-tidy;
@@ -10,31 +54,10 @@ set(CMAKE_C_CLANG_TIDY
 )
 
 
-# Adding Raylib
-include(FetchContent)
-set(FETCHCONTENT_QUIET FALSE)
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
-set(BUILD_GAMES    OFF CACHE BOOL "" FORCE) # don't build the supplied example games
-
-FetchContent_Declare(
-    raylib
-    GIT_REPOSITORY "https://github.com/raysan5/raylib.git"
-    GIT_TAG "master"
-    GIT_PROGRESS TRUE
-)
-add_definitions(-DSUPPORT_FILEFORMAT_BMP)
-
-FetchContent_MakeAvailable(raylib)
-
 # Adding our source files
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/sources/*.c") # Define PROJECT_SOURCES as a list of all source files
 set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/sources/") # Define PROJECT_INCLUDE to be the path to the include directory of the project
-
-# Declaring our executable
-add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
 
-# Setting ASSETS_PATH
-target_compile_definitions(${PROJECT_NAME} PUBLIC ASSETS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/") # Set the asset path macro to the absolute path on the dev machine
+
