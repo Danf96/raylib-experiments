@@ -8,23 +8,14 @@
 #include "scene.h"
 #include "skybox.h"
 #include "terrain.h"
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
 
 #define screenWidth 1280
 #define screenHeight 720
 
 char *mouseStrings[] = {"LMB", "RMB", "MMB"};
 
-typedef struct {
-  size_t capacity;
-  size_t size;
-  Mesh* mesh;
-} MeshList;
-
-typedef struct {
-  size_t capacity;
-  size_t size;
-  Material* mat;
-} MaterialList;
 
 typedef struct {
   short id;
@@ -76,24 +67,25 @@ int main(void) {
 
   // cube for testing
   Mesh cube = GenMeshCube(1, 1, 1);
-  Mesh pointer = GenMeshCone(0.5, 1, 5);
+  Mesh cone = GenMeshCone(0.5, 1, 5);
 
-  MeshList meshList = {.capacity = 10, .size = 2};
-  meshList.mesh = MemAlloc(sizeof(*meshList.mesh) * 10);
-  meshList.mesh[0] = terrainMesh;
-  meshList.mesh[1] = cube;
-  meshList.mesh[2] = pointer;
+  // change to models for animations? look into bones in vertex shader
+  Mesh* meshes = NULL;
+  arrput(meshes, terrainMesh);
+  arrput(meshes, cube);
+  arrput(meshes, cone);
 
-  MaterialList matList = {.capacity = 10, .size = 1};
-  matList.mat = MemAlloc(sizeof(*matList.mat) * 10);
-  matList.mat[0] = terrainMaterial;
+
+  Material *mats = NULL;
+  arrput(mats, terrainMaterial);
+
 
   // Terrain Matrix;
   Matrix terrMatrix = MatrixTranslate(-(terrainMap.maxWidth / 2.0f), 0.0f, -(terrainMap.maxHeight / 2.0f));
 
   // Entity List
 
-  EntityList entityList = CreateEntityList(5);
+  Entity *entities = NULL;
   EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
                      .position = (Vector2){.x = 0, .y = 0.f},
                      .offsetY = 0.5f,
@@ -102,23 +94,21 @@ int main(void) {
                      .typeHandle = 1,
                      .moveSpeed = 0.1f,
                      .type = ENT_TYPE_ACTOR};
-  if (AddEntity(&entityList, &newEnt)) {
-    return EXIT_FAILURE;
-  }
+  entities = AddEntity(entities, &newEnt);
   newEnt.position.x = 0;
   newEnt.position.y = 10;
   newEnt.typeHandle = 2;
   newEnt.rotation.x = 90.f * DEG2RAD;
   
-  if (AddEntity(&entityList, &newEnt)) {
-    return EXIT_FAILURE;
-  }
+  entities = AddEntity(entities, &newEnt);
+
+  short selected[GAME_MAX_SELECTED];
+  memset(selected, -1, sizeof selected);
 
   SetTargetFPS(200);
 
   RTSCamera camera;
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
-  // camera.ViewAngles.y = -15 * DEG2RAD;
 
   float simAccumulator = 0;
   float simDt = 1.f / 60.f; // how many times a second calculations should be made
@@ -136,7 +126,7 @@ int main(void) {
     simAccumulator += GetFrameTime();
     while (simAccumulator >= simDt) 
     {
-      UpdateEntities(&entityList, &terrainMap, &camera);
+      UpdateEntities(&camera, entities, &terrainMap, selected);
       simAccumulator -= simDt;
     }
 
@@ -150,24 +140,24 @@ int main(void) {
     RTSCameraBeginMode3D(&camera);
 
     // Draw Terrain
-    DrawMesh(meshList.mesh[0], matList.mat[0], terrMatrix);
+    DrawMesh(meshes[0], mats[0], terrMatrix);
 
     // draw entities
-    for (size_t i = 0; i < entityList.size; i++) 
+    for (size_t i = 0; i < arrlen(entities); i++) 
     {
-      Entity *ent = &entityList.entities[i];
+      Entity *ent = &entities[i];
       if (ent->type == ENT_TYPE_ACTOR) {
-        DrawMesh(meshList.mesh[ent->typeHandle], matList.mat[ent->materialHandle],
+        DrawMesh(meshes[ent->typeHandle], mats[ent->materialHandle],
                  ent->worldMatrix);
       }
     }
     // draw selection boxes 
     for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
     {
-      if (entityList.selected[i] >= 0)
+      if (selected[i] >= 0)
       {
-        short selectedId = entityList.selected[i];
-        Entity *ent = &entityList.entities[selectedId];
+        short selectedId = selected[i];
+        Entity *ent = &entities[selectedId]; // only works right now, will not work if deleting entities is added
         DrawCubeWires(Vector3Transform(Vector3Zero() ,ent->worldMatrix), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
       }
     }
@@ -208,18 +198,12 @@ int main(void) {
   UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
   UnloadModel(skybox);
 
-  for (size_t i = 0; i < meshList.size; i++) 
-  {
-    UnloadMesh(meshList.mesh[i]);
-  }
-  for (size_t i = 0; i < matList.size; i++) 
-  {
-    UnloadMaterial(matList.mat[i]);
-  }
+  arrfree(meshes);
+  arrfree(mats);
 
   UnloadTexture(terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture);
   // Free entities here
-  MemFree(entityList.entities);
+  arrfree(entities);
   # if 0
   UnloadTexture(bill);
   #endif

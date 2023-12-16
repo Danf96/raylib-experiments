@@ -1,27 +1,11 @@
 #include "scene.h"
 #include <string.h>
+#include "stb_ds.h"
 
 static size_t GLOBAL_ID = 0;
 
-int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
+Entity* AddEntity(Entity *entities, EntityCreate *entityCreate)
 {
-  if (entityList->capacity <= entityList->size + 1)
-  {
-    // regrow array
-    Entity *newArr;
-    newArr = MemRealloc(entityList->entities, entityList->capacity * 2);
-    if (newArr)
-    {
-      entityList->entities = newArr;
-      entityList->capacity *= 2;
-    }
-    else
-    {
-      TraceLog(LOG_ERROR,
-               "Failed to reallocate entity memory, closing program.");
-      return 1;
-    }
-  }
   Entity entity = (Entity){.position = (Vector3){entityCreate->position.x, entityCreate->offsetY, entityCreate->position.y},
                            .offsetY = entityCreate->offsetY,
                            .rotation = entityCreate->rotation,
@@ -33,21 +17,14 @@ int AddEntity(EntityList *entityList, EntityCreate *entityCreate)
                            .id = GLOBAL_ID,
                            .moveSpeed = entityCreate->moveSpeed,
                            .isDirty = true};
-  entityList->entities[entityList->size] = entity;
-  entityList->size++;
+  arrpush(entities, entity);
   GLOBAL_ID++;
-  return 0;
+  return entities;
 }
 
-EntityList CreateEntityList(size_t capacity)
-{
-  EntityList newList = {.capacity = capacity};
-  memset(newList.selected, -1, sizeof(newList.selected));
-  newList.entities = MemAlloc(sizeof(*newList.entities) * capacity);
-  return newList;
-}
 
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera)
+
+void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap, short *selected)
 {
   // iterate over entitylist here for attacking entities, check attack ranges
   if (camera->Focused)
@@ -57,22 +34,22 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
     {
       if (camera->MouseButton == MOUSE_BUTTON_LEFT)
       {
-        short id = EntityGetSelectedId(ray, entityList);
+        short id = EntityGetSelectedId(ray, entities);
         if (id >= 0)
         {
           if (camera->ModifierKey & ADDITIONAL_MODIFIER)
           {
-            EntitySelectedAdd(id, entityList);
+            EntitySelectedAdd(id, selected);
           }
           else
           {
-            EntitySelectedRemoveAll(entityList);
-            EntitySelectedAdd(id, entityList);
+            EntitySelectedRemoveAll(selected);
+            EntitySelectedAdd(id, selected);
           }
         }
         else
         {
-          EntitySelectedRemoveAll(entityList);
+          EntitySelectedRemoveAll(selected);
         }
       }
       else if (camera->MouseButton == MOUSE_BUTTON_RIGHT)
@@ -87,9 +64,9 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
           Vector3 target = GetRayPointTerrain(ray, terrainMap, camera->NearPlane, camera->FarPlane);
           for (int i = 0; i < GAME_MAX_SELECTED; i++)
           {
-            if (entityList->selected[i] >= 0)
+            if (selected[i] >= 0)
             {
-              EntitySetMoving((Vector2){target.x, target.z}, entityList->selected[i], entityList);
+              EntitySetMoving((Vector2){target.x, target.z}, selected[i], entities);
             }
           }
         }
@@ -97,10 +74,10 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
       camera->ClickTimer = 0.2f; // add delay to input
     }
   }
-  for (size_t i = 0; i < entityList->size; i++)
+  for (size_t i = 0; i < arrlen(entities); i++)
   {
     // update entities here then mark dirty
-    Entity *ent = &entityList->entities[i];
+    Entity *ent = &entities[i];
     if (ent->state & ENT_IS_MOVING)
     {
       if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->targetPos))
@@ -119,10 +96,10 @@ void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *c
         // check collisions based purely on positions, keep bbox for only mouse selections
         // rotations not working correctly
         Vector3 newPos = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
-        ent->rotation.y = Vector2Angle(Vector2Normalize(rawDist), (Vector2){0.f, 1.f});
+        ent->rotation.y = (float)atan2(moveVec.x, moveVec.y);
         ent->position = newPos;
         // position will be adjusted within EntityCheckCollision
-        EntityCheckCollision(ent, entityList);
+        EntityCheckCollision(ent, entities);
         ent->isDirty = true;
       }
     }
@@ -159,26 +136,26 @@ BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensions, Vector3 *sc
 
 
 
-void EntitySetMoving(Vector2 position, short entityId, EntityList *entityList)
+void EntitySetMoving(Vector2 position, short entityId, Entity *entities)
 {
   // used purely for move orders, negates attack
-  Entity *targetEntity = &entityList->entities[entityId];
+  Entity *targetEntity = &entities[entityId];
   targetEntity->targetPos = position;
   targetEntity->state |= ENT_IS_MOVING;
 }
 
-short EntityGetSelectedId(Ray ray, EntityList *entityList)
+short EntityGetSelectedId(Ray ray, Entity *entities)
 {
   float closestHit = __FLT_MAX__;
   short selectedId = -1;
-  for (size_t i = 0; i < entityList->size; i++)
+  for (size_t i = 0; i < arrlen(entities); i++)
   {
-    RayCollision collision = GetRayCollisionBox(ray, entityList->entities[i].bbox);
+    RayCollision collision = GetRayCollisionBox(ray, entities[i].bbox);
     if (collision.hit)
     {
       if (collision.distance < closestHit)
       {
-        selectedId = i;
+        selectedId = entities[i].id;
         closestHit = collision.distance;
       }
     }
@@ -186,40 +163,40 @@ short EntityGetSelectedId(Ray ray, EntityList *entityList)
   return selectedId;
 }
 
-void EntitySelectedAdd(short selectedId, EntityList *entityList)
+void EntitySelectedAdd(short selectedId, short *selected)
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
-    if (entityList->selected[i] == selectedId)
+    if (selected[i] == selectedId)
     {
-      entityList->selected[i] = -1;
+      selected[i] = -1;
       break;
     }
-    if (entityList->selected[i] == -1)
+    if (selected[i] == -1)
     {
-      entityList->selected[i] = selectedId;
+      selected[i] = selectedId;
       break;
     }
   }
 }
 
-void EntitySelectedRemoveAll(EntityList *entityList)
+void EntitySelectedRemoveAll(short *selected)
 {
-  memset(entityList->selected, -1, sizeof(entityList->selected));
+  memset(selected, -1, sizeof(*selected * GAME_MAX_SELECTED));
 }
 
-void EntitySelectedRemove(short selectedId, EntityList *entityList)
+void EntitySelectedRemove(short selectedId, short *selected)
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
-    if (entityList->selected[i] == selectedId)
+    if (selected[i] == selectedId)
     {
-      entityList->selected[i] = -1;
+      selected[i] = -1;
       break;
     }
   }
 }
-void EntityCheckCollision(Entity *ent, EntityList *entityList)
+void EntityCheckCollision(Entity *ent, Entity *entities)
 {
   // Do not use bbox for these calculations, those only get updated when entity is marked dirty
   Rectangle sourceRec = (Rectangle){.x = ent->position.x - (ent->dimensions.x / 2.0f),
@@ -227,9 +204,9 @@ void EntityCheckCollision(Entity *ent, EntityList *entityList)
                                     .width = ent->dimensions.x, 
                                     .height = ent->dimensions.z};
 
-  for (int i = 0; i < entityList->size; i++) 
+  for (int i = 0; i < arrlen(entities); i++) 
   {
-    Entity *targetEnt = &entityList->entities[i];
+    Entity *targetEnt = &entities[i];
     if (ent->id == targetEnt->id) continue;
     Rectangle targetRec = (Rectangle){.x = targetEnt->position.x - (targetEnt->dimensions.x / 2.0f),
                                       .y = targetEnt->position.z - (targetEnt->dimensions.z / 2.0f), 

@@ -63,11 +63,8 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *
   camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
   camera->FOV.y = fovY;
 
-  Matrix tiltMat = MatrixRotateX(camera->ViewAngles.y);
-
   camera->ViewCamera.target = position;
   camera->ViewCamera.position = Vector3Add(camera->ViewCamera.target, (Vector3){0, 0, camera->CameraPullbackDistance});
-  camera->ViewCamera.position = Vector3Transform(camera->ViewCamera.position, tiltMat);
   camera->ViewCamera.up = (Vector3){0.0f, 1.0f, 0.0f};
   camera->ViewCamera.fovy = fovY;
   camera->ViewCamera.projection = CAMERA_PERSPECTIVE;
@@ -80,7 +77,7 @@ void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *
 
 Vector3 RTSCameraGetPosition(RTSCamera *camera)
 {
-  // will need to harmonize with terrain coordinates
+  // uses world coordinates, currently unused
   return camera->CameraPosition;
 }
 

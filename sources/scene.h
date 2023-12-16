@@ -58,35 +58,22 @@ typedef struct
   EntityType type;
 } EntityCreate;
 
-typedef struct
-{
-  size_t capacity;
-  size_t size;
-  Entity *entities;
-  short selected[GAME_MAX_SELECTED];
-} EntityList;
+Entity * AddEntity(Entity *entities, EntityCreate *entityCreate);
 
-
-extern Vector2 terrainOffset;
-
-int AddEntity(EntityList *entityList, EntityCreate *entityCreate);
-
-EntityList CreateEntityList(size_t capacity);
-
-void UpdateEntities(EntityList *entityList, TerrainMap *terrainMap, RTSCamera *camera);
+void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap, short *selected);
 
 BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensions, Vector3 *scale);
 
-void EntitySetMoving(Vector2 position, short entityId, EntityList *entityList);
+void EntitySetMoving(Vector2 position, short entityId, Entity *entities);
 
-void EntitySelectedAdd(short selectedId, EntityList *entityList);
+void EntitySelectedAdd(short selectedId, short *selected);
 
-void EntitySelectedRemoveAll(EntityList *entityList);
+void EntitySelectedRemoveAll(short *selected);
 
-void EntitySelectedRemove(short selectedId, EntityList *entityList);
+void EntitySelectedRemove(short selectedId, short *selected);
 
-short EntityGetSelectedId(Ray ray, EntityList *entityList);
+short EntityGetSelectedId(Ray ray, Entity *entities);
 
 void EntityUpdateDirty(Entity *ent, TerrainMap *terrainMap);
 
-void EntityCheckCollision(Entity *ent, EntityList *entityList);
+void EntityCheckCollision(Entity *ent, Entity *entities);
