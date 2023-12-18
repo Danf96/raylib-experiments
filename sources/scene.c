@@ -10,19 +10,31 @@ Entity* AddEntity(Entity *entities, EntityCreate *entityCreate)
                            .offsetY = entityCreate->offsetY,
                            .rotation = entityCreate->rotation,
                            .dimensions = entityCreate->dimensions,
+                           .dimensionsOffset = entityCreate->dimensionsOffset,
                            .scale = entityCreate->scale,
                            .type = entityCreate->type,
-                           .typeHandle = entityCreate->typeHandle,
-                           .materialHandle = entityCreate->materialHandle,
                            .id = GLOBAL_ID,
                            .moveSpeed = entityCreate->moveSpeed,
-                           .isDirty = true};
-  arrpush(entities, entity);
+                           .isDirty = true,
+                           .animIndex = 2,
+                           };
+  entity.model = LoadModel(entityCreate->modelPath);
+  entity.anim = LoadModelAnimations(entityCreate->modelAnimsPath, &entity.animsCount);
+  entity.bbox = EntityBBoxDerive(&entity.position, &entity.dimensionsOffset, &entity.dimensions);
+  arrput(entities, entity);
   GLOBAL_ID++;
   return entities;
 }
 
-
+void UnloadEntities(Entity *entities)
+{
+  for (int i = 0; i < arrlen(entities); i++)
+  {
+    UnloadModel(entities[i].model);
+    UnloadModelAnimations(entities[i].anim, entities[i].animsCount);
+  }
+  arrfree(entities);
+}
 
 void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap, short *selected)
 {
@@ -78,14 +90,17 @@ void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap,
   {
     // update entities here then mark dirty
     Entity *ent = &entities[i];
+    Vector3 oldPos = ent->position;
     if (ent->state & ENT_IS_MOVING)
     {
       if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->targetPos))
       {
         ent->state ^= ENT_IS_MOVING;
+        ent->animIndex = 2;
       }
       else
       {
+        ent->animIndex = 10; // may need to adjust with collision check later
         float adjustedSpeed = ent->moveSpeed;
         Vector2 rawDist = Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z});
         Vector2 moveVec = Vector2Scale(Vector2Normalize(rawDist), adjustedSpeed);
@@ -103,38 +118,45 @@ void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap,
         ent->isDirty = true;
       }
     }
-
+    ent->animCurrentFrame = (ent->animCurrentFrame + 1) % ent->anim[ent->animIndex].frameCount;
+    UpdateModelAnimation(ent->model, ent->anim[ent->animIndex], ent->animCurrentFrame);
     if (ent->isDirty)
     {
-      EntityUpdateDirty(ent, terrainMap);
+      EntityUpdateDirty(oldPos, ent, terrainMap);
     }
   }
 }
-void EntityUpdateDirty(Entity *ent, TerrainMap *terrainMap)
+void EntityUpdateDirty(Vector3 oldPos, Entity *ent, TerrainMap *terrainMap)
 {
   Vector3 adjustedPos = (Vector3){.x = ent->position.x,
                                   .z = ent->position.z,
                                   .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
   ent->position = adjustedPos;
-  ent->worldMatrix = MatrixMultiply(MatrixRotateZYX(ent->rotation),
+  ent->model.transform = MatrixMultiply(MatrixRotateZYX(ent->rotation),
                                     MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
                                                    MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
-  ent->bbox = EntityBBoxDerive(&adjustedPos, &ent->dimensions, &ent->scale);
+  
+  EntityBBoxUpdate(Vector3Subtract(adjustedPos, oldPos), &ent->bbox);
   ent->isDirty = false;
 }
-BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensions, Vector3 *scale)
+
+BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensionsOffset, Vector3 *dimensions)
 {
-  return (BoundingBox){
-      (Vector3){position->x - (dimensions->x * scale->x) / 2.0f,
-                position->y - (dimensions->y * scale->y) / 2.0f,
-                position->z - (dimensions->z * scale->z) / 2.0f},
-      (Vector3){position->x + (dimensions->x * scale->x) / 2.0f,
-                position->y + (dimensions->y * scale->y) / 2.0f,
-                position->z + (dimensions->z * scale->z) / 2.0f},
+    return (BoundingBox){
+      (Vector3){position->x - (dimensions->x) / 2.0f + dimensionsOffset->x,
+                position->y - (dimensions->y) / 2.0f + dimensionsOffset->y,
+                position->z - (dimensions->z) / 2.0f + dimensionsOffset->z},
+      (Vector3){position->x + (dimensions->x) / 2.0f + dimensionsOffset->x,
+                position->y + (dimensions->y) / 2.0f + dimensionsOffset->y,
+                position->z + (dimensions->z) / 2.0f + dimensionsOffset->z},
   };
 }
 
-
+void EntityBBoxUpdate(Vector3 position, BoundingBox *bbox)
+{
+  bbox->max = Vector3Add(bbox->max, position);
+  bbox->min = Vector3Add(bbox->min, position);
+}
 
 void EntitySetMoving(Vector2 position, short entityId, Entity *entities)
 {
@@ -196,22 +218,29 @@ void EntitySelectedRemove(short selectedId, short *selected)
     }
   }
 }
+
+/**
+ * @brief Constructs 2D rectangles from entity's bounding box for collision checks
+ * 
+ * @param ent source entity to check against collisions
+ * @param entities list of entities to iterate over
+ */
 void EntityCheckCollision(Entity *ent, Entity *entities)
 {
-  // Do not use bbox for these calculations, those only get updated when entity is marked dirty
-  Rectangle sourceRec = (Rectangle){.x = ent->position.x - (ent->dimensions.x / 2.0f),
-                                    .y = ent->position.z - (ent->dimensions.z / 2.0f), 
-                                    .width = ent->dimensions.x, 
-                                    .height = ent->dimensions.z};
+  
+  Rectangle sourceRec = (Rectangle){.x = ent->bbox.min.x,
+                                    .y = ent->bbox.min.z,
+                                    .width = ent->bbox.max.x - ent->bbox.min.x,
+                                    .height = ent->bbox.max.z- ent->bbox.min.z};
 
   for (int i = 0; i < arrlen(entities); i++) 
   {
     Entity *targetEnt = &entities[i];
     if (ent->id == targetEnt->id) continue;
-    Rectangle targetRec = (Rectangle){.x = targetEnt->position.x - (targetEnt->dimensions.x / 2.0f),
-                                      .y = targetEnt->position.z - (targetEnt->dimensions.z / 2.0f), 
-                                      .width = targetEnt->dimensions.x, 
-                                      .height = targetEnt->dimensions.z};
+    Rectangle targetRec = (Rectangle){.x = targetEnt->bbox.min.x,
+                                    .y = targetEnt->bbox.min.z,
+                                    .width = targetEnt->bbox.max.x - targetEnt->bbox.min.x,
+                                    .height = targetEnt->bbox.max.z- targetEnt->bbox.min.z};
     bool collision = CheckCollisionRecs(sourceRec, targetRec);
     if (collision) 
     {

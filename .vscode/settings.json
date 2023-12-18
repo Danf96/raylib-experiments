@@ -76,6 +76,7 @@
         "variant": "cpp",
         "csignal": "cpp",
         "shared_mutex": "cpp",
-        "camera.h": "c"
+        "camera.h": "c",
+        "raylib.h": "c"
     }
 }

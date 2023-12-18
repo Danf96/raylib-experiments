@@ -1,15 +1,19 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "camera.h"
+
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+
+#include "camera.h"
 #include "scene.h"
 #include "skybox.h"
 #include "terrain.h"
-#define STB_DS_IMPLEMENTATION
-#include "stb_ds.h"
+#include "models.h"
+
 
 #define screenWidth 1280
 #define screenHeight 720
@@ -65,39 +69,57 @@ int main(void) {
 
   UnloadImage(discMap);
 
+  #if 0
   // cube for testing
   Mesh cube = GenMeshCube(1, 1, 1);
   Mesh cone = GenMeshCone(0.5, 1, 5);
 
+  
   // change to models for animations? look into bones in vertex shader
   Mesh* meshes = NULL;
-  arrput(meshes, terrainMesh);
-  arrput(meshes, cube);
-  arrput(meshes, cone);
+  {
+    arrput(meshes, terrainMesh);
+    arrput(meshes, cube);
+    arrput(meshes, cone);
+  }
+
+  
+  Model *models = NULL;
+  Mesh *meshes = NULL;
+  ModelAnimation *anims = NULL;
+  //models = AddModel("../resources/robot.glb", models);
+  //anims = AddAnimation("../resources/robot.glb", &animsCount, anims);
+  int animsCount = 0;
+  Model test = LoadModel("../resources/robot.glb");
+  ModelAnimation *testAnim = LoadModelAnimations("../resources/robot.glb", &animsCount);
+  #endif
 
 
-  Material *mats = NULL;
-  arrput(mats, terrainMaterial);
+
+  // Material *mats = NULL;
+  // arrput(mats, terrainMaterial);
 
 
   // Terrain Matrix;
-  Matrix terrMatrix = MatrixTranslate(-(terrainMap.maxWidth / 2.0f), 0.0f, -(terrainMap.maxHeight / 2.0f));
+  Matrix terrainMatrix = MatrixTranslate(-(terrainMap.maxWidth / 2.0f), 0.0f, -(terrainMap.maxHeight / 2.0f));
+
+  
 
   // Entity List
 
   Entity *entities = NULL;
   EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
                      .position = (Vector2){.x = 0, .y = 0.f},
-                     .offsetY = 0.5f,
-                     .dimensions = (Vector3){1, 1, 1},
-                     .materialHandle = 0,
-                     .typeHandle = 1,
+                     .offsetY = 0.0f,
+                     .dimensions = (Vector3){1, 4, 1},
+                     .dimensionsOffset = (Vector3){0, 2, 0},
+                     .modelPath = "../resources/robot.glb",
+                     .modelAnimsPath = "../resources/robot.glb",
                      .moveSpeed = 0.1f,
                      .type = ENT_TYPE_ACTOR};
   entities = AddEntity(entities, &newEnt);
   newEnt.position.x = 0;
   newEnt.position.y = 10;
-  newEnt.typeHandle = 2;
   newEnt.rotation.x = 90.f * DEG2RAD;
   
   entities = AddEntity(entities, &newEnt);
@@ -140,15 +162,20 @@ int main(void) {
     RTSCameraBeginMode3D(&camera);
 
     // Draw Terrain
-    DrawMesh(meshes[0], mats[0], terrMatrix);
+    DrawMesh(terrainMesh, terrainMaterial, terrainMatrix);
+
+    // TODO: pass model, view, and perspective matrices to shaders when drawing now (will require custom DrawMesh)
+    // load and bind new shaders for animations
+    // consolidate model transform matrix and entity matrix (can just add pointer/handle to model for entities now)
+    // find way to update animations
+    // as of right now, entities will own models, their animations, and anim counts
 
     // draw entities
     for (size_t i = 0; i < arrlen(entities); i++) 
     {
       Entity *ent = &entities[i];
       if (ent->type == ENT_TYPE_ACTOR) {
-        DrawMesh(meshes[ent->typeHandle], mats[ent->materialHandle],
-                 ent->worldMatrix);
+        DrawActor(&ent->model);
       }
     }
     // draw selection boxes 
@@ -157,8 +184,8 @@ int main(void) {
       if (selected[i] >= 0)
       {
         short selectedId = selected[i];
-        Entity *ent = &entities[selectedId]; // only works right now, will not work if deleting entities is added
-        DrawCubeWires(Vector3Transform(Vector3Zero() ,ent->worldMatrix), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+        Entity *ent = &entities[selectedId]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
+        DrawCubeWires(Vector3Add(ent->dimensionsOffset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
       }
     }
     
@@ -198,15 +225,13 @@ int main(void) {
   UnloadTexture(skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture);
   UnloadModel(skybox);
 
-  arrfree(meshes);
-  arrfree(mats);
+  // arrfree(meshes);
+  // arrfree(mats);
 
   UnloadTexture(terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture);
   // Free entities here
-  arrfree(entities);
-  # if 0
-  UnloadTexture(bill);
-  #endif
+  UnloadEntities(entities);
+
 
   CloseWindow();
 
