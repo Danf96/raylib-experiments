@@ -4,210 +4,212 @@
 
 static size_t GLOBAL_ID = 0;
 
-Entity* AddEntity(Entity *entities, EntityCreate *entityCreate)
+game_entity_t * entity_add(game_entity_t entities[], game_entity_create_t *entity_create)
 {
-  Entity entity = (Entity){.position = (Vector3){entityCreate->position.x, entityCreate->offsetY, entityCreate->position.y},
-                           .offsetY = entityCreate->offsetY,
-                           .rotation = entityCreate->rotation,
-                           .dimensions = entityCreate->dimensions,
-                           .dimensionsOffset = entityCreate->dimensionsOffset,
-                           .scale = entityCreate->scale,
-                           .type = entityCreate->type,
+  game_entity_t entity = (game_entity_t){.position = (Vector3){entity_create->position.x, entity_create->offset_y, entity_create->position.y},
+                           .offset_y = entity_create->offset_y,
+                           .rotation = entity_create->rotation,
+                           .dimensions = entity_create->dimensions,
+                           .dimensions_offset = entity_create->dimensions_offset,
+                           .scale = entity_create->scale,
+                           .type = entity_create->type,
                            .id = GLOBAL_ID,
-                           .moveSpeed = entityCreate->moveSpeed,
-                           .isDirty = true,
-                           .animIndex = 2,
+                           .move_speed = entity_create->move_speed,
+                           .is_dirty = true,
+                           .anim_index = 2, // idle for the robot gltf
+                           .team = entity_create->team,
                            };
-  entity.model = LoadModel(entityCreate->modelPath);
-  entity.anim = LoadModelAnimations(entityCreate->modelAnimsPath, &entity.animsCount);
-  entity.bbox = EntityBBoxDerive(&entity.position, &entity.dimensionsOffset, &entity.dimensions);
+  entity.model = LoadModel(entity_create->model_path);
+  entity.anim = LoadModelAnimations(entity_create->model_anims_path, &entity.anims_count);
+  entity.bbox = entity_bbox_derive(&entity.position, &entity.dimensions_offset, &entity.dimensions);
   arrput(entities, entity);
   GLOBAL_ID++;
   return entities;
 }
 
-void UnloadEntities(Entity *entities)
+void entity_unload_all(game_entity_t entities[])
 {
   for (int i = 0; i < arrlen(entities); i++)
   {
     UnloadModel(entities[i].model);
-    UnloadModelAnimations(entities[i].anim, entities[i].animsCount);
+    UnloadModelAnimations(entities[i].anim, entities[i].anims_count);
   }
   arrfree(entities);
 }
 
-void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap, short *selected)
+void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED])
 {
   // iterate over entitylist here for attacking entities, check attack ranges
-  if (camera->Focused)
+  if (camera->focused)
   {
-    Ray ray = GetMouseRay(GetMousePosition(), camera->ViewCamera); // we should be always getting mouse data (can change to attack icon later when mousing over enemy)
-    if (camera->IsButtonPressed && camera->ClickTimer <= 0)
+    Ray ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam); // we should be always getting mouse data (can change to attack icon later when mousing over enemy)
+    if (camera->is_button_pressed && camera->click_timer <= 0)
     {
-      if (camera->MouseButton == MOUSE_BUTTON_LEFT)
+      if (camera->mouse_button == MOUSE_BUTTON_LEFT)
       {
-        short id = EntityGetSelectedId(ray, entities);
+        short id = entity_get_id(ray, entities);
         if (id >= 0)
         {
-          if (camera->ModifierKey & ADDITIONAL_MODIFIER)
+          if (camera->modifier_key & ADDITIONAL_MODIFIER)
           {
-            EntitySelectedAdd(id, selected);
+            entity_add_selected(id, selected);
           }
           else
           {
-            EntitySelectedRemoveAll(selected);
-            EntitySelectedAdd(id, selected);
+            entity_remove_selected_all(selected);
+            entity_add_selected(id, selected);
           }
         }
         else
         {
-          EntitySelectedRemoveAll(selected);
+          entity_remove_selected_all(selected);
         }
       }
-      else if (camera->MouseButton == MOUSE_BUTTON_RIGHT)
+      else if (camera->mouse_button == MOUSE_BUTTON_RIGHT)
       {
 
-        if (camera->ModifierKey & ATTACK_MODIFIER)
+        if (camera->modifier_key & ATTACK_MODIFIER)
         {
           // TODO: write function for attacking, maybe getting the entity ID of the target so that target positions can be updated as one entity moves over
         }
         else
         {
-          Vector3 target = GetRayPointTerrain(ray, terrainMap, camera->NearPlane, camera->FarPlane);
+          Vector3 target = terrain_get_ray(ray, terrain_map, camera->near_plane, camera->far_plane);
           for (int i = 0; i < GAME_MAX_SELECTED; i++)
           {
             if (selected[i] >= 0)
             {
-              EntitySetMoving((Vector2){target.x, target.z}, selected[i], entities);
+              entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
             }
           }
         }
       }
-      camera->ClickTimer = 0.2f; // add delay to input
+      camera->click_timer = 0.2f; // add delay to input
     }
   }
   for (size_t i = 0; i < arrlen(entities); i++)
   {
     // update entities here then mark dirty
-    Entity *ent = &entities[i];
-    Vector3 oldPos = ent->position;
-    if (ent->state & ENT_IS_MOVING)
+    game_entity_t *ent = &entities[i];
+    Vector3 old_pos = ent->position;
+    if (ent->state & GAME_ENT_STATE_MOVING)
     {
-      if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->targetPos))
+      if (Vector2Equals((Vector2){ent->position.x, ent->position.z}, ent->target_pos))
       {
-        ent->state ^= ENT_IS_MOVING;
-        ent->animIndex = 2;
+        ent->state ^= GAME_ENT_STATE_MOVING;
+        ent->anim_index = 2;
       }
       else
       {
-        ent->animIndex = 10; // may need to adjust with collision check later
-        float adjustedSpeed = ent->moveSpeed;
-        Vector2 rawDist = Vector2Subtract(ent->targetPos, (Vector2){ent->position.x, ent->position.z});
-        Vector2 moveVec = Vector2Scale(Vector2Normalize(rawDist), adjustedSpeed);
-        if (Vector2Length(rawDist) < Vector2Length(moveVec))
+        ent->anim_index = 10; // may need to adjust with collision check later
+        float adjusted_speed = ent->move_speed;
+        Vector2 raw_dist = Vector2Subtract(ent->target_pos, (Vector2){ent->position.x, ent->position.z});
+        Vector2 move_vec = Vector2Scale(Vector2Normalize(raw_dist), adjusted_speed);
+        if (Vector2Length(raw_dist) < Vector2Length(move_vec))
         {
-          moveVec = rawDist;
+          move_vec = raw_dist;
         }
         // check collisions based purely on positions, keep bbox for only mouse selections
         // rotations not working correctly
-        Vector3 newPos = Vector3Add((Vector3){moveVec.x, 0.0, moveVec.y}, ent->position);
-        ent->rotation.y = (float)atan2(moveVec.x, moveVec.y);
+        Vector3 newPos = Vector3Add((Vector3){move_vec.x, 0.0, move_vec.y}, ent->position);
+        ent->rotation.y = (float)atan2(move_vec.x, move_vec.y);
         ent->position = newPos;
         // position will be adjusted within EntityCheckCollision
-        EntityCheckCollision(ent, entities);
-        ent->isDirty = true;
+        entity_collision_check(ent, entities);
+        ent->is_dirty = true;
       }
     }
-    ent->animCurrentFrame = (ent->animCurrentFrame + 1) % ent->anim[ent->animIndex].frameCount;
-    UpdateModelAnimation(ent->model, ent->anim[ent->animIndex], ent->animCurrentFrame);
-    if (ent->isDirty)
+    ent->anim_current_frame = (ent->anim_current_frame + 1) % ent->anim[ent->anim_index].frameCount;
+    UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
+    if (ent->is_dirty)
     {
-      EntityUpdateDirty(oldPos, ent, terrainMap);
+      entity_dirty_update(old_pos, ent, terrain_map);
     }
   }
 }
-void EntityUpdateDirty(Vector3 oldPos, Entity *ent, TerrainMap *terrainMap)
+
+void entity_dirty_update(Vector3 old_pos, game_entity_t *ent, game_terrain_map_t *terrain_map)
 {
-  Vector3 adjustedPos = (Vector3){.x = ent->position.x,
+  Vector3 adjusted_pos = (Vector3){.x = ent->position.x,
                                   .z = ent->position.z,
-                                  .y = ent->offsetY + GetAdjustedHeight(ent->position, terrainMap)};
-  ent->position = adjustedPos;
+                                  .y = ent->offset_y + terrain_get_adjusted_y(ent->position, terrain_map)};
+  ent->position = adjusted_pos;
   ent->model.transform = MatrixMultiply(MatrixRotateZYX(ent->rotation),
-                                    MatrixMultiply(MatrixTranslate(adjustedPos.x, adjustedPos.y, adjustedPos.z),
+                                    MatrixMultiply(MatrixTranslate(adjusted_pos.x, adjusted_pos.y, adjusted_pos.z),
                                                    MatrixScale(ent->scale.x, ent->scale.y, ent->scale.z)));
   
-  EntityBBoxUpdate(Vector3Subtract(adjustedPos, oldPos), &ent->bbox);
-  ent->isDirty = false;
+  entity_bbox_update(Vector3Subtract(adjusted_pos, old_pos), &ent->bbox);
+  ent->is_dirty = false;
 }
 
-BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensionsOffset, Vector3 *dimensions)
+BoundingBox entity_bbox_derive(Vector3 *position, Vector3 *dimensions_offset, Vector3 *dimensions)
 {
     return (BoundingBox){
-      (Vector3){position->x - (dimensions->x) / 2.0f + dimensionsOffset->x,
-                position->y - (dimensions->y) / 2.0f + dimensionsOffset->y,
-                position->z - (dimensions->z) / 2.0f + dimensionsOffset->z},
-      (Vector3){position->x + (dimensions->x) / 2.0f + dimensionsOffset->x,
-                position->y + (dimensions->y) / 2.0f + dimensionsOffset->y,
-                position->z + (dimensions->z) / 2.0f + dimensionsOffset->z},
+      (Vector3){position->x - (dimensions->x) / 2.0f + dimensions_offset->x,
+                position->y - (dimensions->y) / 2.0f + dimensions_offset->y,
+                position->z - (dimensions->z) / 2.0f + dimensions_offset->z},
+      (Vector3){position->x + (dimensions->x) / 2.0f + dimensions_offset->x,
+                position->y + (dimensions->y) / 2.0f + dimensions_offset->y,
+                position->z + (dimensions->z) / 2.0f + dimensions_offset->z},
   };
 }
 
-void EntityBBoxUpdate(Vector3 position, BoundingBox *bbox)
+void entity_bbox_update(Vector3 position, BoundingBox *bbox)
 {
   bbox->max = Vector3Add(bbox->max, position);
   bbox->min = Vector3Add(bbox->min, position);
 }
 
-void EntitySetMoving(Vector2 position, short entityId, Entity *entities)
+void entity_set_moving(Vector2 position, short entity_id, game_entity_t *entities)
 {
   // used purely for move orders, negates attack
-  Entity *targetEntity = &entities[entityId];
-  targetEntity->targetPos = position;
-  targetEntity->state |= ENT_IS_MOVING;
+  game_entity_t *target_ent = &entities[entity_id];
+  target_ent->target_pos = position;
+  target_ent->state |= GAME_ENT_STATE_MOVING;
 }
 
-short EntityGetSelectedId(Ray ray, Entity *entities)
+short entity_get_id(Ray ray, game_entity_t entities[])
 {
-  float closestHit = __FLT_MAX__;
-  short selectedId = -1;
+  float closest_hit = __FLT_MAX__;
+  short selected_id = -1;
   for (size_t i = 0; i < arrlen(entities); i++)
   {
     RayCollision collision = GetRayCollisionBox(ray, entities[i].bbox);
     if (collision.hit)
     {
-      if (collision.distance < closestHit)
+      if (collision.distance < closest_hit)
       {
-        selectedId = entities[i].id;
-        closestHit = collision.distance;
+        selected_id = entities[i].id;
+        closest_hit = collision.distance;
       }
     }
   }
-  return selectedId;
+  return selected_id;
 }
 
-void EntitySelectedAdd(short selectedId, short *selected)
+void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED])
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
-    if (selected[i] == selectedId)
+    if (selected[i] == selected_id)
     {
       selected[i] = -1;
       break;
     }
     if (selected[i] == -1)
     {
-      selected[i] = selectedId;
+      selected[i] = selected_id;
       break;
     }
   }
 }
 
-void EntitySelectedRemoveAll(short *selected)
+void entity_remove_selected_all(short selected[GAME_MAX_SELECTED])
 {
   memset(selected, -1, sizeof(*selected * GAME_MAX_SELECTED));
 }
 
-void EntitySelectedRemove(short selectedId, short *selected)
+void entity_remove_selected(short selectedId, short selected[GAME_MAX_SELECTED])
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
@@ -225,35 +227,35 @@ void EntitySelectedRemove(short selectedId, short *selected)
  * @param ent source entity to check against collisions
  * @param entities list of entities to iterate over
  */
-void EntityCheckCollision(Entity *ent, Entity *entities)
+void entity_collision_check(game_entity_t *ent, game_entity_t entities[])
 {
   
-  Rectangle sourceRec = (Rectangle){.x = ent->bbox.min.x,
+  Rectangle source_rec = (Rectangle){.x = ent->bbox.min.x,
                                     .y = ent->bbox.min.z,
                                     .width = ent->bbox.max.x - ent->bbox.min.x,
                                     .height = ent->bbox.max.z- ent->bbox.min.z};
 
   for (int i = 0; i < arrlen(entities); i++) 
   {
-    Entity *targetEnt = &entities[i];
-    if (ent->id == targetEnt->id) continue;
-    Rectangle targetRec = (Rectangle){.x = targetEnt->bbox.min.x,
-                                    .y = targetEnt->bbox.min.z,
-                                    .width = targetEnt->bbox.max.x - targetEnt->bbox.min.x,
-                                    .height = targetEnt->bbox.max.z- targetEnt->bbox.min.z};
-    bool collision = CheckCollisionRecs(sourceRec, targetRec);
+    game_entity_t *target_ent = &entities[i];
+    if (ent->id == target_ent->id) continue;
+    Rectangle target_rec = (Rectangle){.x = target_ent->bbox.min.x,
+                                    .y = target_ent->bbox.min.z,
+                                    .width = target_ent->bbox.max.x - target_ent->bbox.min.x,
+                                    .height = target_ent->bbox.max.z- target_ent->bbox.min.z};
+    bool collision = CheckCollisionRecs(source_rec, target_rec);
     if (collision) 
     {
-      Rectangle collisionRec = GetCollisionRec(sourceRec, targetRec);
+      Rectangle collision_rec = GetCollisionRec(source_rec, target_rec);
       // if width smaller than height, move entity on X axis (pick shortest intersection)
-      if (collisionRec.width < collisionRec.height) {
-        float direction = ent->position.x < collisionRec.x ? -1 : 1;
-        ent->position.x += (collisionRec.width) * direction;
+      if (collision_rec.width < collision_rec.height) {
+        float direction = ent->position.x < collision_rec.x ? -1 : 1;
+        ent->position.x += (collision_rec.width) * direction;
       }
       else
       {
-        float direction = ent->position.z < collisionRec.y ? -1 : 1;
-        ent->position.z += (collisionRec.height) * direction;
+        float direction = ent->position.z < collision_rec.y ? -1 : 1;
+        ent->position.z += (collision_rec.height) * direction;
       }
     }
   }

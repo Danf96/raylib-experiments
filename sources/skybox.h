@@ -2,4 +2,4 @@
 
 #include "raylib.h"
 
-Model GetSkybox(const char *skyName);
+Model skybox_init(const char *sky_name);

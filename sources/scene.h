@@ -12,77 +12,84 @@
 #define GAME_MAX_UNITS 100
 #define GAME_MAX_SELECTED 12
 
-typedef enum
-{
-  ENT_TYPE_EMPTY = 0,
-  ENT_TYPE_ACTOR,
-} EntityType;
+#define GAME_TEAM_PLAYER 1
+#define GAME_TEAM_AI 2
 
-typedef enum
+typedef enum game_entity_type
 {
-  ENT_IDLE = 0,
-  ENT_IS_MOVING = (1<<1),
-  ENT_IS_ATTACKING = (1<<2),
-  ENT_DEAD = (1<<3),
-} EntityState;
+  GAME_ENT_TYPE_EMPTY = 0,
+  GAME_ENT_TYPE_ACTOR,
+  GAME_ENT_TYPE_OBJECT,
+} game_entity_type;
 
-// stores model information, and all animations with count
+typedef enum game_entity_state
+{
+  GAME_ENT_STATE_IDLE = 0,
+  GAME_ENT_STATE_MOVING = (1<<1),
+  GAME_ENT_STATE_ATTACKING = (1<<2),
+  GAME_ENT_STATE_DEAD = (1<<3),
+} game_entity_state;
+
+// stores model information, and all animations with count, coult later refactor into structure of arrays
 typedef struct
 {
-  short id;
+  uint16_t id;
+  uint8_t team;
+  uint8_t anim_index;
+  uint32_t anim_current_frame;
+  int32_t anims_count;
   Model model;
   ModelAnimation *anim;
-  unsigned int animCurrentFrame;
-  int animsCount;
-  int animIndex;
-  float offsetY;
+  float offset_y;
   Vector3 scale;
   Vector3 position;
   Vector3 dimensions;
-  Vector3 dimensionsOffset;
+  Vector3 dimensions_offset;
   Vector3 rotation;
-  Vector2 targetPos;
-  float moveSpeed;
-  EntityType type;
+  Vector2 target_pos;
+  uint16_t target_id;
+  float move_speed;
+  game_entity_type type;
   BoundingBox bbox;
-  EntityState state;
-  bool isDirty;
-} Entity;
+  game_entity_state state;
+  bool is_dirty;
+} game_entity_t;
 
 typedef struct
 {
+  uint8_t team;
   Vector3 scale;
   Vector2 position;
   Vector3 dimensions;
-  Vector3 dimensionsOffset;
+  Vector3 dimensions_offset;
   Vector3 rotation;
-  float offsetY;
-  float moveSpeed;
-  char *modelPath;
-  char *modelAnimsPath;
-  EntityType type;
-} EntityCreate;
+  float offset_y;
+  float move_speed;
+  char *model_path;
+  char *model_anims_path;
+  game_entity_type type;
+} game_entity_create_t;
 
-Entity * AddEntity(Entity *entities, EntityCreate *entityCreate);
+game_entity_t * entity_add(game_entity_t entities[], game_entity_create_t *entity_create);
 
-void UpdateEntities(RTSCamera *camera, Entity *entities, TerrainMap *terrainMap, short *selected);
+void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED]);
 
-BoundingBox EntityBBoxDerive(Vector3 *position, Vector3 *dimensionsOffset, Vector3 *dimensions);
+BoundingBox entity_bbox_derive(Vector3 *position, Vector3 *dimensions_offset, Vector3 *dimensions);
 
-void EntityBBoxUpdate(Vector3 position, BoundingBox *bbox);
+void entity_bbox_update(Vector3 position, BoundingBox *bbox);
 
-void EntitySetMoving(Vector2 position, short entityId, Entity *entities);
+void entity_set_moving(Vector2 position, short entity_id, game_entity_t *entities);
 
-void EntitySelectedAdd(short selectedId, short *selected);
+void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
 
-void EntitySelectedRemoveAll(short *selected);
+void entity_remove_selected_all(short selected[GAME_MAX_SELECTED]);
 
-void EntitySelectedRemove(short selectedId, short *selected);
+void entity_remove_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
 
-short EntityGetSelectedId(Ray ray, Entity *entities);
+short entity_get_id(Ray ray, game_entity_t entities[]);
 
-void EntityUpdateDirty(Vector3 oldPos, Entity *ent, TerrainMap *terrainMap);
+void entity_dirty_update(Vector3 old_pos, game_entity_t *ent, game_terrain_map_t *terrain_map);
 
-void EntityCheckCollision(Entity *ent, Entity *entities);
+void entity_collision_check(game_entity_t *ent, game_entity_t entities[]);
 
-void UnloadEntities(Entity *entities);
+void entity_unload_all(game_entity_t entities[]);

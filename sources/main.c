@@ -14,142 +14,100 @@
 #include "terrain.h"
 #include "models.h"
 
-
 #define screenWidth 1280
 #define screenHeight 720
 
-char *mouseStrings[] = {"LMB", "RMB", "MMB"};
+char *mouse_strings[] = {"LMB", "RMB", "MMB"};
 
-
-typedef struct {
-  short id;
-  BoundingBox dimensions;
-} BBox;
-
-Vector2 terrainOffset = {0};
-TerrainMap terrainMap = {0};
-
-int main(void) {
+int main(void)
+{
   //--------------------------------------------------------------------------
   // Initialization
   //--------------------------------------------------------------------------
   InitWindow(screenWidth, screenHeight, "raylib - demo");
 
-  // textures, models, and shaders
-  #if 0
+// textures, models, and shaders
+#if 0
   Texture2D bill = LoadTexture("../resources/billboard.png");
   Shader alphaDiscard = LoadShader(NULL, "../shaders/alphaDiscard.fs");
   GenTextureMipmaps(&bill);
   SetTextureWrap(bill, TEXTURE_WRAP_CLAMP);
   SetTextureFilter(bill, TEXTURE_FILTER_ANISOTROPIC_16X);
-  #endif
+#endif
 
-
-  Model skybox = GetSkybox("../resources/ACID");
+  Model skybox = skybox_init("../resources/ACID");
 
   // terrain
-  Image discMap = LoadImage("../resources/discmap.BMP");
-  Texture2D colorMap = LoadTexture("../resources/colormap.BMP");
-  terrainMap = (TerrainMap){.maxWidth = discMap.width, .maxHeight = discMap.height};
-  terrainMap.value = MemAlloc(sizeof(*terrainMap.value) * discMap.width * discMap.height);
-  if (!terrainMap.value)
+  Image disc_map = LoadImage("../resources/discmap.BMP");
+  Texture2D color_map = LoadTexture("../resources/colormap.BMP");
+  game_terrain_map_t terrain_map = (game_terrain_map_t){.max_width = disc_map.width, .max_height = disc_map.height};
+  terrain_map.value = MemAlloc(sizeof(*terrain_map.value) * disc_map.width * disc_map.height);
+  if (!terrain_map.value)
   {
     TraceLog(LOG_ERROR, "Failed to allocate heightmap memory.");
     return EXIT_FAILURE;
   }
-  Mesh terrainMesh = GenMeshCustomHeightmap(discMap, &terrainMap);
-  Material terrainMaterial = LoadMaterialDefault();
-  terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = colorMap;
-  terrainOffset = (Vector2){.x = terrainMap.maxWidth / 2.0f, .y = terrainMap.maxHeight / 2.0f};
+  Mesh terrain_mesh = terrain_init(disc_map, &terrain_map);
+  Material terrain_material = LoadMaterialDefault();
+  terrain_material.maps[MATERIAL_MAP_DIFFUSE].texture = color_map;
 
-  GenTextureMipmaps(&colorMap);
-  SetTextureWrap(colorMap, TEXTURE_WRAP_REPEAT);
-  SetTextureFilter(colorMap, TEXTURE_FILTER_TRILINEAR);
-  SetTextureFilter(colorMap, TEXTURE_FILTER_ANISOTROPIC_16X);
+  GenTextureMipmaps(&color_map);
+  SetTextureWrap(color_map, TEXTURE_WRAP_REPEAT);
+  SetTextureFilter(color_map, TEXTURE_FILTER_TRILINEAR);
+  SetTextureFilter(color_map, TEXTURE_FILTER_ANISOTROPIC_16X);
 
-  UnloadImage(discMap);
-
-  #if 0
-  // cube for testing
-  Mesh cube = GenMeshCube(1, 1, 1);
-  Mesh cone = GenMeshCone(0.5, 1, 5);
-
-  
-  // change to models for animations? look into bones in vertex shader
-  Mesh* meshes = NULL;
-  {
-    arrput(meshes, terrainMesh);
-    arrput(meshes, cube);
-    arrput(meshes, cone);
-  }
-
-  
-  Model *models = NULL;
-  Mesh *meshes = NULL;
-  ModelAnimation *anims = NULL;
-  //models = AddModel("../resources/robot.glb", models);
-  //anims = AddAnimation("../resources/robot.glb", &animsCount, anims);
-  int animsCount = 0;
-  Model test = LoadModel("../resources/robot.glb");
-  ModelAnimation *testAnim = LoadModelAnimations("../resources/robot.glb", &animsCount);
-  #endif
-
-
-
-  // Material *mats = NULL;
-  // arrput(mats, terrainMaterial);
-
+  UnloadImage(disc_map);
 
   // Terrain Matrix;
-  Matrix terrainMatrix = MatrixTranslate(-(terrainMap.maxWidth / 2.0f), 0.0f, -(terrainMap.maxHeight / 2.0f));
-
-  
+  Matrix terrain_matrix = MatrixTranslate(-(terrain_map.max_width / 2.0f), 0.0f, -(terrain_map.max_height / 2.0f));
 
   // Entity List
 
-  Entity *entities = NULL;
-  EntityCreate newEnt = (EntityCreate){.scale = (Vector3){1.0f, 1.0f, 1.0f},
-                     .position = (Vector2){.x = 0, .y = 0.f},
-                     .offsetY = 0.0f,
-                     .dimensions = (Vector3){1, 4, 1},
-                     .dimensionsOffset = (Vector3){0, 2, 0},
-                     .modelPath = "../resources/robot.glb",
-                     .modelAnimsPath = "../resources/robot.glb",
-                     .moveSpeed = 0.1f,
-                     .type = ENT_TYPE_ACTOR};
-  entities = AddEntity(entities, &newEnt);
-  newEnt.position.x = 0;
-  newEnt.position.y = 10;
-  newEnt.rotation.x = 90.f * DEG2RAD;
-  
-  entities = AddEntity(entities, &newEnt);
+  game_entity_t *entities = NULL;
+  game_entity_create_t new_ent = (game_entity_create_t){
+      .scale = (Vector3){1.0f, 1.0f, 1.0f},
+      .position = (Vector2){.x = 0, .y = 0.f},
+      .offset_y = 0.0f,
+      .dimensions = (Vector3){1, 4, 1},
+      .dimensions_offset = (Vector3){0, 2, 0},
+      .model_path = "../resources/robot.glb",
+      .model_anims_path = "../resources/robot.glb",
+      .move_speed = 0.1f,
+      .team = GAME_TEAM_PLAYER,
+      .type = GAME_ENT_TYPE_ACTOR};
+  entities = entity_add(entities, &new_ent);
+  new_ent.position.x = 0;
+  new_ent.position.y = 10;
+  new_ent.team = GAME_TEAM_AI;
+
+  entities = entity_add(entities, &new_ent);
 
   short selected[GAME_MAX_SELECTED];
   memset(selected, -1, sizeof selected);
 
   SetTargetFPS(200);
 
-  RTSCamera camera = {};
-  RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
+  game_camera_t camera = {};
+  game_camera_init(&camera, 45.0f, (Vector3){0, 0, 0}, &terrain_map);
 
-  float simAccumulator = 0;
-  float simDt = 1.f / 60.f; // how many times a second calculations should be made
+  float sim_accumulator = 0;
+  float sim_dt = 1.f / 60.f; // how many times a second calculations should be made
 
   //--------------------------------------------------------------------------
   // Main game loop
   //--------------------------------------------------------------------------
-  while (!WindowShouldClose()) 
+  while (!WindowShouldClose())
   {
     // Detect window close button or ESC key
     //----------------------------------------------------------------------
     // Update
     //----------------------------------------------------------------------
-    RTSCameraUpdate(&camera, &terrainMap);
-    simAccumulator += GetFrameTime();
-    while (simAccumulator >= simDt) 
+    game_camera_update(&camera, &terrain_map);
+    sim_accumulator += GetFrameTime();
+    while (sim_accumulator >= sim_dt)
     {
-      UpdateEntities(&camera, entities, &terrainMap, selected);
-      simAccumulator -= simDt;
+      entity_update_all(&camera, entities, &terrain_map, selected);
+      sim_accumulator -= sim_dt;
     }
 
     //----------------------------------------------------------------------
@@ -159,10 +117,10 @@ int main(void) {
 
     ClearBackground(RAYWHITE);
 
-    RTSCameraBeginMode3D(&camera);
+    game_camera_begin_mode_3d(&camera);
 
     // Draw Terrain
-    DrawMesh(terrainMesh, terrainMaterial, terrainMatrix);
+    DrawMesh(terrain_mesh, terrain_material, terrain_matrix);
 
     // TODO: pass model, view, and perspective matrices to shaders when drawing now (will require custom DrawMesh)
     // load and bind new shaders for animations
@@ -171,32 +129,32 @@ int main(void) {
     // as of right now, entities will own models, their animations, and anim counts
 
     // draw entities
-    for (size_t i = 0; i < arrlen(entities); i++) 
+    for (size_t i = 0; i < arrlen(entities); i++)
     {
-      Entity *ent = &entities[i];
-      if (ent->type == ENT_TYPE_ACTOR) {
-        DrawActor(&ent->model);
+      game_entity_t *ent = &entities[i];
+      if (ent->type == GAME_ENT_TYPE_ACTOR)
+      {
+        entity_draw_actor(&ent->model);
       }
     }
-    // draw selection boxes 
+    // draw selection boxes
     for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
     {
       if (selected[i] >= 0)
       {
-        short selectedId = selected[i];
-        Entity *ent = &entities[selectedId]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
-        DrawCubeWires(Vector3Add(ent->dimensionsOffset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+        short selected_id = selected[i];
+        game_entity_t *ent = &entities[selected_id]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
+        DrawCubeWires(Vector3Add(ent->dimensions_offset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
       }
     }
-    
 
-    DrawSphere(camera.CameraPosition, 0.25f, RED);
+    DrawSphere(camera.camera_pos, 0.25f, RED);
 
-    #if 0
+#if 0
     BeginShaderMode(alphaDiscard);
 
     EndShaderMode();
-    #endif
+#endif
 
     // red outer circle
     // DrawCircle3D(Vector3Zero(), 2, (Vector3){1, 0, 0}, 90, RED);
@@ -204,15 +162,18 @@ int main(void) {
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
 
-    RTSCameraEndMode3D();
+    game_camera_end_mode_3d();
 
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",
-                        camera.CameraPosition.x + terrainOffset.x,
-                        camera.CameraPosition.y,
-                        camera.CameraPosition.z + terrainOffset.y),
+                        camera.camera_pos.x,
+                        camera.camera_pos.y,
+                        camera.camera_pos.z),
              10, 30, 20, WHITE);
-    DrawText(TextFormat("%s", mouseStrings[camera.MouseButton]), 100, 100, 20, GRAY);
+    if (camera.is_button_pressed)
+    {
+      DrawText(TextFormat("%s", mouse_strings[camera.mouse_button]), 100, 100, 20, GRAY);
+    }
 
     EndDrawing();
   }
@@ -227,14 +188,15 @@ int main(void) {
 
   // arrfree(meshes);
   // arrfree(mats);
+  UnloadMesh(terrain_mesh);
+  UnloadTexture(terrain_material.maps[MATERIAL_MAP_DIFFUSE].texture);
+  UnloadMaterial(terrain_material);
+  MemFree(terrain_map.value);
 
-  UnloadMesh(terrainMesh);
-  UnloadTexture(terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture);
-  UnloadMaterial(terrainMaterial);
-  MemFree(terrainMap.value);
   // Free entities here
-  UnloadEntities(entities);
+  entity_unload_all(entities);
 
+  MemFree(terrain_map.value);
 
   CloseWindow();
 

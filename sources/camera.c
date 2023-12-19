@@ -6,7 +6,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 
-static void ResizeRTSOrbitCameraView(RTSCamera *camera)
+static void game_camera_resize_view(game_camera_t *camera)
 {
   if (!camera)
   {
@@ -16,152 +16,152 @@ static void ResizeRTSOrbitCameraView(RTSCamera *camera)
   float width = (float)GetScreenWidth();
   float height = (float)GetScreenHeight();
 
-  camera->FOV.y = camera->ViewCamera.fovy;
+  camera->fov.y = camera->ray_view_cam.fovy;
 
   if (height != 0)
-    camera->FOV.x = camera->FOV.y * (width / height);
+    camera->fov.x = camera->fov.y * (width / height);
 }
 
-void RTSCameraInit(RTSCamera *camera, float fovY, Vector3 position, TerrainMap *terrainMap)
+void game_camera_init(game_camera_t *camera, float fov_y, Vector3 position, game_terrain_map_t *terrain_map)
 {
   if (!camera)
     return;
 
-  camera->ControlsKeys[0] = 'W';
-  camera->ControlsKeys[1] = 'S';
-  camera->ControlsKeys[2] = 'D';
-  camera->ControlsKeys[3] = 'A';
-  camera->ControlsKeys[4] = KEY_SPACE;
-  camera->ControlsKeys[5] = KEY_LEFT_CONTROL;
-  camera->ControlsKeys[6] = 'E';
-  camera->ControlsKeys[7] = 'Q';
-  camera->ControlsKeys[8] = KEY_UP;
-  camera->ControlsKeys[9] = KEY_DOWN;
-  camera->ControlsKeys[10] = KEY_LEFT_SHIFT;
+  camera->controls_keys[0] = 'W';
+  camera->controls_keys[1] = 'S';
+  camera->controls_keys[2] = 'D';
+  camera->controls_keys[3] = 'A';
+  camera->controls_keys[4] = KEY_SPACE;
+  camera->controls_keys[5] = KEY_LEFT_CONTROL;
+  camera->controls_keys[6] = 'E';
+  camera->controls_keys[7] = 'Q';
+  camera->controls_keys[8] = KEY_UP;
+  camera->controls_keys[9] = KEY_DOWN;
+  camera->controls_keys[10] = KEY_LEFT_SHIFT;
 
-  camera->MouseButton = 0;
-  camera->ModifierKey = 0;
+  camera->mouse_button = 0;
+  camera->modifier_key = 0;
 
-  camera->ClickTimer = 0;
+  camera->click_timer = 0;
 
-  camera->MoveSpeed = (Vector3){8, 8, 8};
-  camera->RotationSpeed = (Vector2){90, 90};
+  camera->move_speed = (Vector3){8, 8, 8};
+  camera->rotation_speed = (Vector2){90, 90};
 
-  camera->MouseSensitivity = 600;
+  camera->mouse_sens = 600;
 
-  camera->MinimumViewY = -50.0f;
-  camera->MaximumViewY = -15.0f;
+  camera->min_view_y = -50.0f;
+  camera->max_view_y = -15.0f;
 
 
-  camera->Focused = IsWindowFocused();
+  camera->focused = IsWindowFocused();
 
-  camera->CameraPullbackDistance = 15.f;
+  camera->camera_pullback_dist= 15.f;
 
-  camera->ViewAngles = (Vector2){180.f * DEG2RAD, -45.f * DEG2RAD};
+  camera->view_angles = (Vector2){180.f * DEG2RAD, -45.f * DEG2RAD};
 
-  camera->CameraPosition = position;
-  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
-  camera->FOV.y = fovY;
+  camera->camera_pos = position;
+  camera->camera_pos.y = terrain_get_adjusted_y(camera->camera_pos, terrain_map);
+  camera->fov.y = fov_y;
 
-  camera->ViewCamera.target = position;
-  camera->ViewCamera.position = Vector3Add(camera->ViewCamera.target, (Vector3){0, 0, camera->CameraPullbackDistance});
-  camera->ViewCamera.up = (Vector3){0.0f, 1.0f, 0.0f};
-  camera->ViewCamera.fovy = fovY;
-  camera->ViewCamera.projection = CAMERA_PERSPECTIVE;
+  camera->ray_view_cam.target = position;
+  camera->ray_view_cam.position = Vector3Add(camera->ray_view_cam.target, (Vector3){0, 0, camera->camera_pullback_dist});
+  camera->ray_view_cam.up = (Vector3){0.0f, 1.0f, 0.0f};
+  camera->ray_view_cam.fovy = fov_y;
+  camera->ray_view_cam.projection = CAMERA_PERSPECTIVE;
 
-  camera->NearPlane = 0.01;
-  camera->FarPlane = 1000.0;
+  camera->near_plane = 0.01;
+  camera->far_plane = 1000.0;
 
-  ResizeRTSOrbitCameraView(camera);
+  game_camera_resize_view(camera);
 }
 
-Vector3 RTSCameraGetPosition(RTSCamera *camera)
+Vector3 game_camera_get_world_pos(game_camera_t *camera)
 {
   // uses world coordinates, currently unused
-  return camera->CameraPosition;
+  return camera->camera_pos;
 }
 
-void RTSCameraSetPosition(RTSCamera *camera, Vector3 position)
+void game_camera_set_pos(game_camera_t *camera, Vector3 position)
 {
   // uses world coordinates
-  camera->CameraPosition = position;
+  camera->camera_pos = position;
 }
 
-Ray RTSCameraGetViewRay(RTSCamera *camera)
+Ray game_camera_get_view_ray(game_camera_t *camera)
 {
-  return (Ray){camera->ViewCamera.position, Vector3Subtract(camera->ViewCamera.target, camera->ViewCamera.position)};
+  return (Ray){camera->ray_view_cam.position, Vector3Subtract(camera->ray_view_cam.target, camera->ray_view_cam.position)};
 }
 
-static float GetSpeedForAxis(RTSCamera *camera, RTSCameraControls axis, float speed)
+static float game_camera_get_axis_speed(game_camera_t *camera, game_camera_controls axis, float speed)
 {
   if (!camera)
     return 0;
 
-  int key = camera->ControlsKeys[axis];
+  int key = camera->controls_keys[axis];
   if (key == -1)
     return 0;
 
   float factor = 1.0f;
 
-  if (IsKeyDown(camera->ControlsKeys[axis]))
+  if (IsKeyDown(camera->controls_keys[axis]))
     return speed * GetFrameTime() * factor;
 
   return 0.0f;
 }
 
-void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
+void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
 {
   if (!camera)
     return;
 
   if (IsWindowResized())
-    ResizeRTSOrbitCameraView(camera);
-  camera->Focused = IsWindowFocused();
+    game_camera_resize_view(camera);
+  camera->focused = IsWindowFocused();
 
-  bool isPressed = false;
+  bool is_pressed = false;
 
-  if (camera->Focused)
+  if (camera->focused)
   {
     for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_MIDDLE; button++)
     {
       if (IsMouseButtonDown(button))
       {
-        camera->MouseButton = button;
-        camera->IsButtonPressed = true;
+        camera->mouse_button = button;
+        camera->is_button_pressed = true;
         break;
       }
       else if (IsMouseButtonReleased(button))
       {
-        camera->MouseButton = button;
-        camera->IsButtonPressed = false;
+        camera->mouse_button = button;
+        camera->is_button_pressed = false;
         break;
       }
     }
-    if (IsKeyDown(camera->ControlsKeys[MODIFIER_1]))
+    if (IsKeyDown(camera->controls_keys[MODIFIER_1]))
     {
-      camera->ModifierKey = ADDITIONAL_MODIFIER;
+      camera->modifier_key = ADDITIONAL_MODIFIER;
     }
     else
     {
-      camera->ModifierKey = 0;
+      camera->modifier_key = 0;
     }
   }
   else
-    (camera->IsButtonPressed = false); // no buttons registered when not focused
+    (camera->is_button_pressed = false); // no buttons registered when not focused
 
-  Vector2 mousePositionDelta = GetMouseDelta();
+  Vector2 mouse_pos_delta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
 
   float direction[MOVE_DOWN + 1] = {
-      -GetSpeedForAxis(camera, MOVE_FRONT, camera->MoveSpeed.z),
-      -GetSpeedForAxis(camera, MOVE_BACK, camera->MoveSpeed.z),
-      GetSpeedForAxis(camera, MOVE_RIGHT, camera->MoveSpeed.x),
-      GetSpeedForAxis(camera, MOVE_LEFT, camera->MoveSpeed.x),
-      GetSpeedForAxis(camera, MOVE_UP, camera->MoveSpeed.y),
-      GetSpeedForAxis(camera, MOVE_DOWN, camera->MoveSpeed.y)};
+      -game_camera_get_axis_speed(camera, MOVE_FRONT, camera->move_speed.z),
+      -game_camera_get_axis_speed(camera, MOVE_BACK, camera->move_speed.z),
+      game_camera_get_axis_speed(camera, MOVE_RIGHT, camera->move_speed.x),
+      game_camera_get_axis_speed(camera, MOVE_LEFT, camera->move_speed.x),
+      game_camera_get_axis_speed(camera, MOVE_UP, camera->move_speed.y),
+      game_camera_get_axis_speed(camera, MOVE_DOWN, camera->move_speed.y)};
 
-  bool rotateMouse = (camera->MouseButton == MOUSE_BUTTON_MIDDLE && camera->IsButtonPressed);
-  if (rotateMouse)
+  bool rotate_mouse = (camera->mouse_button == MOUSE_BUTTON_MIDDLE && camera->is_button_pressed);
+  if (rotate_mouse)
   {
     HideCursor();
   }
@@ -170,100 +170,100 @@ void RTSCameraUpdate(RTSCamera *camera, TerrainMap *terrainMap)
     ShowCursor();
   }
 
-  float pivotHeadingRotation =
-      GetSpeedForAxis(camera, ROTATE_RIGHT, camera->RotationSpeed.x) -
-      GetSpeedForAxis(camera, ROTATE_LEFT, camera->RotationSpeed.x);
-  float pivotPitchRotation =
-      GetSpeedForAxis(camera, ROTATE_UP, camera->RotationSpeed.y) -
-      GetSpeedForAxis(camera, ROTATE_DOWN, camera->RotationSpeed.y);
+  float pivot_heading_rotation =
+      game_camera_get_axis_speed(camera, ROTATE_RIGHT, camera->rotation_speed.x) -
+      game_camera_get_axis_speed(camera, ROTATE_LEFT, camera->rotation_speed.x);
+  float pivot_pitch_rotation =
+      game_camera_get_axis_speed(camera, ROTATE_UP, camera->rotation_speed.y) -
+      game_camera_get_axis_speed(camera, ROTATE_DOWN, camera->rotation_speed.y);
 
-  if (pivotHeadingRotation)
-    camera->ViewAngles.x -= pivotHeadingRotation * DEG2RAD;
-  else if (rotateMouse && camera->Focused)
-    camera->ViewAngles.x -= (mousePositionDelta.x / camera->MouseSensitivity);
+  if (pivot_heading_rotation)
+    camera->view_angles.x -= pivot_heading_rotation * DEG2RAD;
+  else if (rotate_mouse && camera->focused)
+    camera->view_angles.x -= (mouse_pos_delta.x / camera->mouse_sens);
 
-  if (pivotPitchRotation)
-    camera->ViewAngles.y += pivotPitchRotation * DEG2RAD;
-  else if (rotateMouse && camera->Focused)
-    camera->ViewAngles.y += (mousePositionDelta.y / -camera->MouseSensitivity);
+  if (pivot_pitch_rotation)
+    camera->view_angles.y += pivot_pitch_rotation * DEG2RAD;
+  else if (rotate_mouse && camera->focused)
+    camera->view_angles.y += (mouse_pos_delta.y / -camera->mouse_sens);
 
   // Clamp view angles
-  if (camera->ViewAngles.y < camera->MinimumViewY * DEG2RAD)
-    camera->ViewAngles.y = camera->MinimumViewY * DEG2RAD;
-  else if (camera->ViewAngles.y > camera->MaximumViewY * DEG2RAD)
-    camera->ViewAngles.y = camera->MaximumViewY * DEG2RAD;
+  if (camera->view_angles.y < camera->min_view_y * DEG2RAD)
+    camera->view_angles.y = camera->min_view_y * DEG2RAD;
+  else if (camera->view_angles.y > camera->max_view_y * DEG2RAD)
+    camera->view_angles.y = camera->max_view_y * DEG2RAD;
 
-  Vector3 moveVec = {0};
-  moveVec.x = direction[MOVE_RIGHT] - direction[MOVE_LEFT];
-  moveVec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
+  Vector3 move_vec = {0};
+  move_vec.x = direction[MOVE_RIGHT] - direction[MOVE_LEFT];
+  move_vec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
   // Update zoom
-  camera->CameraPullbackDistance += (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
-  if (camera->CameraPullbackDistance < 1)
-    camera->CameraPullbackDistance = 1;
+  camera->camera_pullback_dist += (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
+  if (camera->camera_pullback_dist < 1)
+    camera->camera_pullback_dist = 1;
 
-  Vector3 camPos = {.z = camera->CameraPullbackDistance};
+  Vector3 cam_pos = {.z = camera->camera_pullback_dist};
 
-  Matrix tiltMat = MatrixRotateX(camera->ViewAngles.y);
-  Matrix rotMat = MatrixRotateY(camera->ViewAngles.x);
-  Matrix mat = MatrixMultiply(tiltMat, rotMat);
+  Matrix tilt_mat = MatrixRotateX(camera->view_angles.y);
+  Matrix rot_mat = MatrixRotateY(camera->view_angles.x);
+  Matrix mat = MatrixMultiply(tilt_mat, rot_mat);
 
-  camPos = Vector3Transform(camPos, mat);
-  moveVec = Vector3Transform(moveVec, rotMat);
+  cam_pos = Vector3Transform(cam_pos, mat);
+  move_vec = Vector3Transform(move_vec, rot_mat);
 
-  camera->CameraPosition = Vector3Add(camera->CameraPosition, moveVec);
-  camera->CameraPosition.y = GetAdjustedHeight(camera->CameraPosition, terrainMap);
-  camera->ViewCamera.target = camera->CameraPosition;
-  camera->ViewCamera.position = Vector3Add(camera->CameraPosition, camPos);
+  camera->camera_pos = Vector3Add(camera->camera_pos, move_vec);
+  camera->camera_pos.y = terrain_get_adjusted_y(camera->camera_pos, terrain_map);
+  camera->ray_view_cam.target = camera->camera_pos;
+  camera->ray_view_cam.position = Vector3Add(camera->camera_pos, cam_pos);
 
-  camera->ClickTimer -= GetFrameTime();
+  camera->click_timer -= GetFrameTime();
 }
 
-static void SetupCamera(RTSCamera *camera, float aspect)
+static void game_camera_setup(game_camera_t *camera, float aspect)
 {
   rlDrawRenderBatchActive();
   rlMatrixMode(RL_PROJECTION);
   rlPushMatrix();
   rlLoadIdentity();
 
-  if (camera->ViewCamera.projection == CAMERA_PERSPECTIVE)
+  if (camera->ray_view_cam.projection == CAMERA_PERSPECTIVE)
   {
     double top =
-        RL_CULL_DISTANCE_NEAR * tan(camera->ViewCamera.fovy * 0.5 * DEG2RAD);
+        RL_CULL_DISTANCE_NEAR * tan(camera->ray_view_cam.fovy * 0.5 * DEG2RAD);
     double right = top * aspect;
 
-    rlFrustum(-right, right, -top, top, camera->NearPlane, camera->FarPlane);
+    rlFrustum(-right, right, -top, top, camera->near_plane, camera->far_plane);
   }
-  else if (camera->ViewCamera.projection == CAMERA_ORTHOGRAPHIC)
+  else if (camera->ray_view_cam.projection == CAMERA_ORTHOGRAPHIC)
   {
-    double top = camera->ViewCamera.fovy / 2.0;
+    double top = camera->ray_view_cam.fovy / 2.0;
     double right = top * aspect;
 
-    rlOrtho(-right, right, -top, top, camera->NearPlane, camera->FarPlane);
+    rlOrtho(-right, right, -top, top, camera->near_plane, camera->far_plane);
   }
 
   rlMatrixMode(RL_MODELVIEW);
   rlLoadIdentity();
 
   Matrix matView =
-      MatrixLookAt(camera->ViewCamera.position, camera->ViewCamera.target,
-                   camera->ViewCamera.up);
+      MatrixLookAt(camera->ray_view_cam.position, camera->ray_view_cam.target,
+                   camera->ray_view_cam.up);
 
   rlMultMatrixf(MatrixToFloatV(matView).v);
 
   rlEnableDepthTest();
 }
 
-void RTSCameraBeginMode3D(RTSCamera *camera)
+void game_camera_begin_mode_3d(game_camera_t *camera)
 {
   if (!camera)
     return;
 
   float aspect = (float)GetScreenWidth() / (float)GetScreenHeight();
-  SetupCamera(camera, aspect);
+  game_camera_setup(camera, aspect);
 }
 
-void RTSCameraEndMode3D(void)
+void game_camera_end_mode_3d(void)
 {
   EndMode3D();
 }

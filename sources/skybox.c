@@ -1,7 +1,7 @@
 #include "skybox.h"
 #include <stdio.h>
 
-Model GetSkybox(const char *skyName)
+Model skybox_init(const char *sky_name)
 {
   // side endings in order they will be loaded onto in the cubemap (currently reversed)
   char *sides[] = {"E.png", "W.png", "T.png", "B.png", "S.png", "N.png"};
@@ -23,12 +23,12 @@ Model GetSkybox(const char *skyName)
   }
 
   // Skybox generation, assumes skybox names are in the order of East, West, Top, Bottom, South, North
-  char skySides[6][32] = {};
+  char sky_sides[6][32] = {};
   Image img[6];
   for (int i = 0; i < 6; i++) 
   {
-    sprintf(skySides[i], "%s%s", skyName, sides[i]);
-    img[i] = LoadImage(skySides[i]);
+    sprintf(sky_sides[i], "%s%s", sky_name, sides[i]);
+    img[i] = LoadImage(sky_sides[i]);
     ImageFlipHorizontal(&img[i]);
     if (i == 2 || i == 3)
     {
@@ -44,10 +44,10 @@ Model GetSkybox(const char *skyName)
   ImageFormat(&faces, img[0].format); // currently assuming all images are same size and format
   for (int i = 0; i < 6; i++)
   {
-    Rectangle srcRec = (Rectangle){0, 0, size, size};
-    Rectangle dstRec = (Rectangle){0, (float)size * (float)i, size, size};
+    Rectangle src_rec = (Rectangle){0, 0, size, size};
+    Rectangle dst_rec = (Rectangle){0, (float)size * (float)i, size, size};
     
-    ImageDraw(&faces, img[i], srcRec, dstRec, WHITE);
+    ImageDraw(&faces, img[i], src_rec, dst_rec, WHITE);
   }
   skybox.materials[0].maps[MATERIAL_MAP_CUBEMAP].texture = LoadTextureCubemap(
       faces, CUBEMAP_LAYOUT_AUTO_DETECT); // CUBEMAP_LAYOUT_PANORAMA

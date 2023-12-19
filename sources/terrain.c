@@ -1,17 +1,17 @@
 #include "terrain.h"
 // Modified version of RayLib heighmap generation
-Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap)
+Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
 {
 #define GRAY_VALUE(c) ((float)(c.r + c.g + c.b) / 3.0f)
 
   Mesh mesh = {0};
 
-  int mapX = heightImage.width;
-  int mapZ = heightImage.height;
+  int mapX = height_image.width;
+  int mapZ = height_image.height;
 
-  const float yScale = 32.0f / 256.0f;
+  const float y_scale = 32.0f / 256.0f;
 
-  Color *pixels = LoadImageColors(heightImage);
+  Color *pixels = LoadImageColors(height_image);
 
   // NOTE: One vertex per pixel
   mesh.triangleCount =
@@ -42,24 +42,24 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap)
 
       // one triangle - 3 vertex
       mesh.vertices[vCounter] = (float)x;
-      mesh.vertices[vCounter + 1] = GRAY_VALUE(pixels[x + z * mapX]) * yScale;
+      mesh.vertices[vCounter + 1] = GRAY_VALUE(pixels[x + z * mapX]) * y_scale;
       mesh.vertices[vCounter + 2] = (float)z;
 
       mesh.vertices[vCounter + 3] = (float)x;
       mesh.vertices[vCounter + 4] =
-          GRAY_VALUE(pixels[x + (z + 1) * mapX]) * yScale;
+          GRAY_VALUE(pixels[x + (z + 1) * mapX]) * y_scale;
       mesh.vertices[vCounter + 5] = (float)(z + 1);
 
       mesh.vertices[vCounter + 6] = (float)(x + 1);
       mesh.vertices[vCounter + 7] =
-          GRAY_VALUE(pixels[(x + 1) + z * mapX]) * yScale;
+          GRAY_VALUE(pixels[(x + 1) + z * mapX]) * y_scale;
       mesh.vertices[vCounter + 8] = (float)z;
 
       // populate heightMap
-      terrainMap->value[x * terrainMap->maxWidth + z] = GRAY_VALUE(pixels[x + z * mapX]) * yScale;
-      terrainMap->value[x * terrainMap->maxWidth + (z + 1)] = GRAY_VALUE(pixels[x + (z + 1) * mapX]) * yScale;
-      terrainMap->value[(x + 1) * terrainMap->maxWidth + z] = GRAY_VALUE(pixels[(x + 1) + z * mapX]) * yScale;
-      terrainMap->value[(x + 1) * terrainMap->maxWidth + (z + 1)] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
+      terrain_map->value[x * terrain_map->max_width + z] = GRAY_VALUE(pixels[x + z * mapX]) * y_scale;
+      terrain_map->value[x * terrain_map->max_width + (z + 1)] = GRAY_VALUE(pixels[x + (z + 1) * mapX]) * y_scale;
+      terrain_map->value[(x + 1) * terrain_map->max_width + z] = GRAY_VALUE(pixels[(x + 1) + z * mapX]) * y_scale;
+      terrain_map->value[(x + 1) * terrain_map->max_width + (z + 1)] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * y_scale;
 
       // Another triangle - 3 vertex
       mesh.vertices[vCounter + 9] = mesh.vertices[vCounter + 6];
@@ -71,7 +71,7 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap)
       mesh.vertices[vCounter + 14] = mesh.vertices[vCounter + 5];
 
       mesh.vertices[vCounter + 15] = (float)(x + 1);
-      mesh.vertices[vCounter + 16] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * yScale;
+      mesh.vertices[vCounter + 16] = GRAY_VALUE(pixels[(x + 1) + (z + 1) * mapX]) * y_scale;
       mesh.vertices[vCounter + 17] = (float)(z + 1);
       vCounter += 18; // 6 vertex, 18 floats
 
@@ -140,48 +140,48 @@ Mesh GenMeshCustomHeightmap(Image heightImage, TerrainMap *terrainMap)
   return mesh;
 }
 
-Vector3 WorldXZToTerrain(Vector3 worldPos, TerrainMap *terrainMap)
+Vector3 terrain_convert_from_world_pos(Vector3 world_pos, game_terrain_map_t *terrain_map)
 {
-  return (Vector3){.x = worldPos.x + (terrainMap->maxWidth / 2.0f),
-                   .y = worldPos.y,
-                   .z = worldPos.z + (terrainMap->maxHeight / 2.0f)};
+  return (Vector3){.x = world_pos.x + (terrain_map->max_width / 2.0f),
+                   .y = world_pos.y,
+                   .z = world_pos.z + (terrain_map->max_height / 2.0f)};
 }
 
-Vector3 TerrainXZToWorld(Vector3 terrainPos, TerrainMap *terrainMap)
+Vector3 terrain_convert_to_world_pos(Vector3 terrain_pos, game_terrain_map_t *terrain_map)
 {
-  return (Vector3){.x = terrainPos.x - (terrainMap->maxWidth / 2.0f),
-                   .y = terrainPos.y,
-                   .z = terrainPos.z - (terrainMap->maxHeight / 2.0f)};
+  return (Vector3){.x = terrain_pos.x - (terrain_map->max_width / 2.0f),
+                   .y = terrain_pos.y,
+                   .z = terrain_pos.z - (terrain_map->max_height / 2.0f)};
 }
 
-float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap)
+float terrain_get_adjusted_y(Vector3 world_pos, game_terrain_map_t *terrain_map)
 {
-  Vector3 terrainPos = WorldXZToTerrain(worldPos, terrainMap);
-  int indexX = floor(terrainPos.x);
-  int indexZ = floor(terrainPos.z);
-  if (indexX >= terrainMap->maxWidth || indexZ >= terrainMap->maxHeight)
+  Vector3 terrain_pos = terrain_convert_from_world_pos(world_pos, terrain_map);
+  int index_x = floor(terrain_pos.x);
+  int index_z = floor(terrain_pos.z);
+  if (index_x >= terrain_map->max_width || index_z >= terrain_map->max_height)
   {
     // we are out of bounds
     return 0.0f;
   }
-  float xCoord = (terrainPos.x - indexX);
-  float zCoord = (terrainPos.z - indexZ);
+  float xCoord = (terrain_pos.x - index_x);
+  float zCoord = (terrain_pos.z - index_z);
   Vector3 a, b, c;    // three vectors constructed around oldPos
   Vector3 barycenter; // u, v, w calculated from a, b, c
   float answer;
   if (xCoord <= 1 - zCoord)
   {
-    a = (Vector3){0, terrainMap->value[indexX * terrainMap->maxWidth + indexZ], 0}; // maxWidth used as a stride offset
-    b = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + indexZ], 0};
-    c = (Vector3){0, terrainMap->value[indexX * terrainMap->maxWidth + (indexZ + 1)], 1};
+    a = (Vector3){0, terrain_map->value[index_x * terrain_map->max_width + index_z], 0}; // maxWidth used as a stride offset
+    b = (Vector3){1, terrain_map->value[(index_x + 1) * terrain_map->max_width + index_z], 0};
+    c = (Vector3){0, terrain_map->value[index_x * terrain_map->max_width + (index_z + 1)], 1};
   }
   else
   {
-    a = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ )], 0};
-    b = (Vector3){1, terrainMap->value[(indexX + 1) * terrainMap->maxWidth + (indexZ + 1)], 1};
-    c = (Vector3){0, terrainMap->value[(indexX) * terrainMap->maxWidth + (indexZ + 1)], 1};
+    a = (Vector3){1, terrain_map->value[(index_x + 1) * terrain_map->max_width + (index_z)], 0};
+    b = (Vector3){1, terrain_map->value[(index_x + 1) * terrain_map->max_width + (index_z + 1)], 1};
+    c = (Vector3){0, terrain_map->value[(index_x) * terrain_map->max_width + (index_z + 1)], 1};
   }
-  barycenter = Vector3Barycenter((Vector3){xCoord, terrainPos.y, zCoord}, a, b, c);
+  barycenter = Vector3Barycenter((Vector3){xCoord, terrain_pos.y, zCoord}, a, b, c);
   answer = barycenter.x * a.y + barycenter.y * b.y + barycenter.z * c.y;
 
   return answer;
@@ -189,28 +189,28 @@ float GetAdjustedHeight(Vector3 worldPos, TerrainMap *terrainMap)
 
 // Get collision info between ray and terrain
 // sourced from  https://iquilezles.org/articles/terrainmarching/
-Vector3 GetRayPointTerrain(Ray ray, TerrainMap *terrainMap, float zNear, float zFar)
+Vector3 terrain_get_ray(Ray ray, game_terrain_map_t *terrain_map, float z_near, float z_far)
 {
   // calculations will be done using terrain coordinates until testing collision
-  Vector3 rayPos = WorldXZToTerrain(ray.position, terrainMap);
+  Vector3 ray_pos = terrain_convert_from_world_pos(ray.position, terrain_map);
 
   // change in direction in 3 axes
-  float tDelta = 0.5f;
+  float t_delta = 0.5f;
   Vector3 p;
   bool intersection = false;
-  for (float t = zNear; t < zFar; t += tDelta)
+  for (float t = z_near; t < z_far; t += t_delta)
   {
-    p = Vector3Add(rayPos, Vector3Scale(ray.direction, t));
+    p = Vector3Add(ray_pos, Vector3Scale(ray.direction, t));
     // check to ensure no segfaults
-    if (p.x < 0 || p.z < 0 || p.x > terrainMap->maxWidth - 1 || p.z > terrainMap->maxHeight - 1) {
+    if (p.x < 0 || p.z < 0 || p.x > terrain_map->max_width - 1 || p.z > terrain_map->max_height - 1) {
       return (Vector3){0};
     }
-    float heightY = terrainMap->value[(int)floor(p.x) * terrainMap->maxWidth + (int)floor(p.z)];
+    float heightY = terrain_map->value[(int)floor(p.x) * terrain_map->max_width + (int)floor(p.z)];
     if (p.y < heightY)
     {
       // NOTE: does redundant calulcations currently, could move to a new function (currently broken when height is adjusted and camera is facing directly above unit)
       // p.y = GetAdjustedHeight(p, terrainMap);
-      return TerrainXZToWorld(p, terrainMap);
+      return terrain_convert_to_world_pos(p, terrain_map);
     }
   }
   return (Vector3){0};
