@@ -1,2 +1,2 @@
-# raylib-experiments
-Intended to get a better handle of collision, world coordinates in a context that does not only involve rendering logic, input handling including mouse support, and eventually physics.
+# Raylib Demo Game
+Basic RTS/Tactics style game intended to get a better handle of collision, gameplay logic, skeletal animation, and eventually physics.
