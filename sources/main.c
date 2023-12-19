@@ -129,7 +129,7 @@ int main(void) {
 
   SetTargetFPS(200);
 
-  RTSCamera camera;
+  RTSCamera camera = {};
   RTSCameraInit(&camera, 45.0f, (Vector3){0, 0, 0}, &terrainMap);
 
   float simAccumulator = 0;
@@ -228,7 +228,10 @@ int main(void) {
   // arrfree(meshes);
   // arrfree(mats);
 
+  UnloadMesh(terrainMesh);
   UnloadTexture(terrainMaterial.maps[MATERIAL_MAP_DIFFUSE].texture);
+  UnloadMaterial(terrainMaterial);
+  MemFree(terrainMap.value);
   // Free entities here
   UnloadEntities(entities);
 
