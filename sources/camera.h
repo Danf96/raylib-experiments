@@ -19,6 +19,7 @@ typedef enum
   ROTATE_UP,
   ROTATE_DOWN,
   MODIFIER_1,
+  MODIFIER_2,
   LAST_CONTROL
 } game_camera_controls;
 

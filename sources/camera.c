@@ -38,6 +38,7 @@ void game_camera_init(game_camera_t *camera, float fov_y, Vector3 position, game
   camera->controls_keys[8] = KEY_UP;
   camera->controls_keys[9] = KEY_DOWN;
   camera->controls_keys[10] = KEY_LEFT_SHIFT;
+  camera->controls_keys[11] = KEY_LEFT_CONTROL;
 
   camera->mouse_button = 0;
   camera->modifier_key = 0;
@@ -141,6 +142,10 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
     {
       camera->modifier_key = ADDITIONAL_MODIFIER;
     }
+    else if (IsKeyDown(camera->controls_keys[MODIFIER_2]))
+    {
+      camera->modifier_key = ATTACK_MODIFIER;
+    }
     else
     {
       camera->modifier_key = 0;
@@ -152,13 +157,11 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
   Vector2 mouse_pos_delta = GetMouseDelta();
   // float mouseWheelMove = GetMouseWheelMove();
 
-  float direction[MOVE_DOWN + 1] = {
+  float direction[MOVE_LEFT + 1] = {
       -game_camera_get_axis_speed(camera, MOVE_FRONT, camera->move_speed.z),
       -game_camera_get_axis_speed(camera, MOVE_BACK, camera->move_speed.z),
       game_camera_get_axis_speed(camera, MOVE_RIGHT, camera->move_speed.x),
-      game_camera_get_axis_speed(camera, MOVE_LEFT, camera->move_speed.x),
-      game_camera_get_axis_speed(camera, MOVE_UP, camera->move_speed.y),
-      game_camera_get_axis_speed(camera, MOVE_DOWN, camera->move_speed.y)};
+      game_camera_get_axis_speed(camera, MOVE_LEFT, camera->move_speed.x)};
 
   bool rotate_mouse = (camera->mouse_button == MOUSE_BUTTON_MIDDLE && camera->is_button_pressed);
   if (rotate_mouse)
@@ -198,7 +201,7 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
   move_vec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
   // Update zoom
-  camera->camera_pullback_dist += (-GetMouseWheelMove()) + (direction[MOVE_DOWN] - direction[MOVE_UP]);
+  camera->camera_pullback_dist += (-GetMouseWheelMove());
   if (camera->camera_pullback_dist < 1)
     camera->camera_pullback_dist = 1;
 

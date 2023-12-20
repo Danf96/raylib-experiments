@@ -73,6 +73,10 @@ int main(void)
       .model_path = "../resources/robot.glb",
       .model_anims_path = "../resources/robot.glb",
       .move_speed = 0.1f,
+      .attack_radius = 5.f,
+      .attack_damage = 25.f,
+      .attack_cooldown_max = 1.75f,
+      .hit_points = 100.f,
       .team = GAME_TEAM_PLAYER,
       .type = GAME_ENT_TYPE_ACTOR};
   entities = entity_add(entities, &new_ent);
@@ -106,7 +110,7 @@ int main(void)
     sim_accumulator += GetFrameTime();
     while (sim_accumulator >= sim_dt)
     {
-      entity_update_all(&camera, entities, &terrain_map, selected);
+      entity_update_all(&camera, entities, &terrain_map, selected, sim_dt);
       sim_accumulator -= sim_dt;
     }
 
@@ -145,6 +149,7 @@ int main(void)
         short selected_id = selected[i];
         game_entity_t *ent = &entities[selected_id]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
         DrawCubeWires(Vector3Add(ent->dimensions_offset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+        DrawCircle3D(ent->position, ent->attack_radius, (Vector3){1, 0, 0}, 90, RED);
       }
     }
 
@@ -156,8 +161,7 @@ int main(void)
     EndShaderMode();
 #endif
 
-    // red outer circle
-    // DrawCircle3D(Vector3Zero(), 2, (Vector3){1, 0, 0}, 90, RED);
+
 
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
