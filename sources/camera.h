@@ -4,8 +4,10 @@
 #include "raymath.h"
 #include "terrain.h"
 #include "stdint.h"
-// Using Jeff M's Raylib extras camera
+// Based on Jeff M's Raylib extras camera, modified following methods from Game Engine Architecture
 // https://github.com/raylib-extras/extras-c/tree/main/cameras
+
+
 typedef enum
 {
   MOVE_FRONT = 0,
@@ -18,28 +20,38 @@ typedef enum
   ROTATE_LEFT,
   ROTATE_UP,
   ROTATE_DOWN,
-  MODIFIER_1,
-  MODIFIER_2,
+  MODIFIER_ADD,
+  MODIFIER_ATTACK,
   LAST_CONTROL
 } game_camera_controls;
 
 typedef enum
 {
-  ADDITIONAL_MODIFIER = (1<<0),
-  ATTACK_MODIFIER = (1<<1),
-} game_camera_actions;
+  LEFT_CLICK = 1,
+  RIGHT_CLICK,
+  LEFT_CLICK_ADD,
+  LEFT_CLICK_ATTACK,
+} game_input_event_type;
+
+typedef struct 
+{
+  game_input_event_type event_type;
+  Ray mouse_ray;
+} game_input_event_t;
 
 typedef struct
 {
   int controls_keys[LAST_CONTROL];
 
-  uint8_t mouse_button;
-  uint8_t modifier_key;
-  bool is_button_pressed;
+  uint8_t mouse_states;       // current frame's button states
+  uint8_t prev_mouse_states;  // last frame's states
+  uint8_t mouse_downs;        // 1 = button pressed this frame
+  uint8_t mouse_ups;          // 1 = button released this frame
+
+  game_input_event_t *input_events;
 
   // the speed in units/second to move
   Vector3 move_speed;
-
   Vector2 rotation_speed;
 
   float mouse_sens;
@@ -54,7 +66,6 @@ typedef struct
   float camera_pullback_dist;
 
   Camera ray_view_cam;
-
 
   Vector2 fov;
 

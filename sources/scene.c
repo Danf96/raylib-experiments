@@ -6,6 +6,8 @@
 // NOTE: change array accesses to some sort of lookup (hash maybe)
 static size_t GLOBAL_ID = 0;
 
+// NOTE: set a minimum pixel area to do dragging, otherwise consider a single click.
+
 typedef enum
 {
   ROBO_DIE = 1,
@@ -61,58 +63,56 @@ void entity_unload_all(game_entity_t entities[])
 void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt)
 {
   // input processing when window is focused
-  if (camera->focused)
+  for (int i = 0; i < arrlen(camera->input_events); i++)
   {
-    Ray ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam); // we should be always getting mouse data (can change to attack icon later when mousing over enemy)
-    if (camera->is_button_pressed && camera->click_timer <= 0)
+    game_input_event_t *input_event = &camera->input_events[i];
+    if (input_event->event_type == LEFT_CLICK)
     {
-      if (camera->mouse_button == MOUSE_BUTTON_LEFT)
-      {
-        short id = entity_get_id(ray, entities);
+      short id = entity_get_id(input_event->mouse_ray, entities);
         if (id >= 0)
         {
-          if (camera->modifier_key & ADDITIONAL_MODIFIER)
-          {
-            entity_add_selected(id, selected);
-          }
-          else
-          {
-            entity_remove_selected_all(selected);
-            entity_add_selected(id, selected);
-          }
+          entity_remove_selected_all(selected);
+          entity_add_selected(id, selected);
+          
         }
         else
         {
           entity_remove_selected_all(selected);
         }
-      }
-      else if (camera->mouse_button == MOUSE_BUTTON_RIGHT)
+    }
+    else if (input_event->event_type == LEFT_CLICK_ADD)
+    {
+      short id = entity_get_id(input_event->mouse_ray, entities);
+      if (id >= 0)
       {
-
-        if (camera->modifier_key & ATTACK_MODIFIER)
-        {
-          // TODO: write function for attacking, maybe getting the entity ID of the target so that target positions can be updated as one entity moves over
-          short target_id = entity_get_id(ray, entities);
-          if (target_id >= 0)
-          {
-            entity_set_attacking(target_id, entities, selected);
-          }
-        }
-        else
-        {
-          Vector3 target = terrain_get_ray(ray, terrain_map, camera->near_plane, camera->far_plane);
-          for (int i = 0; i < GAME_MAX_SELECTED; i++)
-          {
-            if (selected[i] >= 0)
-            {
-              entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
-            }
-          }
-        }
+        entity_add_selected(id, selected);
       }
-      camera->click_timer = 0.2f; // add delay to input
+      else
+      {
+          entity_remove_selected_all(selected);
+      }
+    }
+    else if (input_event->event_type == LEFT_CLICK_ATTACK)
+    {
+      short target_id = entity_get_id(input_event->mouse_ray, entities);
+      if (target_id >= 0)
+      {
+        entity_set_attacking(target_id, entities, selected);
+      }
+    }
+    else if (input_event->event_type == RIGHT_CLICK)
+    {
+      Vector3 target = terrain_get_ray(input_event->mouse_ray, terrain_map, camera->near_plane, camera->far_plane);
+        for (int i = 0; i < GAME_MAX_SELECTED; i++)
+        {
+          if (selected[i] >= 0)
+          {
+            entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
+          }
+        }
     }
   }
+  arrsetlen(camera->input_events, 0);
 
   // updating all entities after input is processed
   for (size_t i = 0; i < arrlen(entities); i++)

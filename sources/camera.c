@@ -2,9 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "camera.h"
 #include "raylib.h"
 #include "rlgl.h"
+#include "stb_ds.h"
+
+#include "camera.h"
+#include "util.h"
+
 
 static void game_camera_resize_view(game_camera_t *camera)
 {
@@ -22,29 +26,74 @@ static void game_camera_resize_view(game_camera_t *camera)
     camera->fov.x = camera->fov.y * (width / height);
 }
 
+static void game_camera_get_mouse_states(game_camera_t *camera)
+{
+  for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_RIGHT; button++)
+  {
+    if (IsMouseButtonDown(button))
+    {
+      camera->mouse_states |= (1 << (button));
+    }
+  }
+}
+static void game_camera_detect_mouse_events(game_camera_t *camera) 
+{
+  uint32_t mouse_changes = camera->mouse_states ^ camera->prev_mouse_states;
+
+  camera->mouse_downs = mouse_changes & camera->mouse_states;
+  camera->mouse_ups = mouse_changes & (~camera->mouse_states);
+}
+
+static void game_camera_create_input_events(game_camera_t *camera)
+{
+  if (camera->mouse_downs)
+  {
+    game_input_event_t new_event = {0};
+    if (camera->mouse_downs & (1 << MOUSE_BUTTON_LEFT))
+    {
+      if (IsKeyDown(camera->controls_keys[MODIFIER_ADD]))
+      {
+        new_event.event_type = LEFT_CLICK_ADD;
+      }
+      else if (IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
+      {
+        new_event.event_type = LEFT_CLICK_ATTACK;
+      }
+      else 
+      {
+        new_event.event_type = LEFT_CLICK;
+      }
+    }
+    if (camera->mouse_downs & (1 << MOUSE_BUTTON_RIGHT))
+    {
+      new_event.event_type = RIGHT_CLICK;
+    }
+    new_event.mouse_ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam);
+    arrput(camera->input_events, new_event);
+  }
+}
+
 void game_camera_init(game_camera_t *camera, float fov_y, Vector3 position, game_terrain_map_t *terrain_map)
 {
   if (!camera)
+  {
     return;
+  }
+    
+  camera->controls_keys[0] = 'W';                   // MOVE_FRONT
+  camera->controls_keys[1] = 'S';                   // MOVE_BACK
+  camera->controls_keys[2] = 'D';                   // MOVE_RIGHT
+  camera->controls_keys[3] = 'A';                   // MOVE_LEFT
+  camera->controls_keys[4] = KEY_SPACE;             // MOVE_UP
+  camera->controls_keys[5] = KEY_LEFT_CONTROL;      // MOVE_DOWN
+  camera->controls_keys[6] = 'E';                   // ROTATE_RIGHT
+  camera->controls_keys[7] = 'Q';                   // ROTATE_LEFT
+  camera->controls_keys[8] = KEY_UP;                // ROTATE_UP
+  camera->controls_keys[9] = KEY_DOWN;              // ROTATE_DOWN
+  camera->controls_keys[10] = KEY_LEFT_SHIFT;       // MODIFIER_ADD
+  camera->controls_keys[11] = KEY_LEFT_CONTROL;     // MODIFIER_ATTACK
 
-  camera->controls_keys[0] = 'W';
-  camera->controls_keys[1] = 'S';
-  camera->controls_keys[2] = 'D';
-  camera->controls_keys[3] = 'A';
-  camera->controls_keys[4] = KEY_SPACE;
-  camera->controls_keys[5] = KEY_LEFT_CONTROL;
-  camera->controls_keys[6] = 'E';
-  camera->controls_keys[7] = 'Q';
-  camera->controls_keys[8] = KEY_UP;
-  camera->controls_keys[9] = KEY_DOWN;
-  camera->controls_keys[10] = KEY_LEFT_SHIFT;
-  camera->controls_keys[11] = KEY_LEFT_CONTROL;
-
-  camera->mouse_button = 0;
-  camera->modifier_key = 0;
-
-  camera->click_timer = 0;
-
+  camera->mouse_states = 0;
   camera->move_speed = (Vector3){8, 8, 8};
   camera->rotation_speed = (Vector2){90, 90};
 
@@ -52,6 +101,8 @@ void game_camera_init(game_camera_t *camera, float fov_y, Vector3 position, game
 
   camera->min_view_y = -50.0f;
   camera->max_view_y = -15.0f;
+
+  camera->input_events = NULL;
 
 
   camera->focused = IsWindowFocused();
@@ -93,19 +144,23 @@ Ray game_camera_get_view_ray(game_camera_t *camera)
   return (Ray){camera->ray_view_cam.position, Vector3Subtract(camera->ray_view_cam.target, camera->ray_view_cam.position)};
 }
 
-static float game_camera_get_axis_speed(game_camera_t *camera, game_camera_controls axis, float speed)
+static float game_camera_get_axis_speed(game_camera_t *camera, game_camera_controls axis, float speed, float dt)
 {
   if (!camera)
+  {
     return 0;
+  }
 
   int key = camera->controls_keys[axis];
   if (key == -1)
+  {
     return 0;
+  }
 
   float factor = 1.0f;
 
   if (IsKeyDown(camera->controls_keys[axis]))
-    return speed * GetFrameTime() * factor;
+    return speed * dt * factor;
 
   return 0.0f;
 }
@@ -113,57 +168,40 @@ static float game_camera_get_axis_speed(game_camera_t *camera, game_camera_contr
 void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
 {
   if (!camera)
+  {
     return;
-
+  }
+    
   if (IsWindowResized())
+  {
     game_camera_resize_view(camera);
+  }
+    
   camera->focused = IsWindowFocused();
 
-  bool is_pressed = false;
 
   if (camera->focused)
   {
-    for (int button = MOUSE_BUTTON_LEFT; button <= MOUSE_BUTTON_MIDDLE; button++)
-    {
-      if (IsMouseButtonDown(button))
-      {
-        camera->mouse_button = button;
-        camera->is_button_pressed = true;
-        break;
-      }
-      else if (IsMouseButtonReleased(button))
-      {
-        camera->mouse_button = button;
-        camera->is_button_pressed = false;
-        break;
-      }
-    }
-    if (IsKeyDown(camera->controls_keys[MODIFIER_1]))
-    {
-      camera->modifier_key = ADDITIONAL_MODIFIER;
-    }
-    else if (IsKeyDown(camera->controls_keys[MODIFIER_2]))
-    {
-      camera->modifier_key = ATTACK_MODIFIER;
-    }
-    else
-    {
-      camera->modifier_key = 0;
-    }
+    camera->prev_mouse_states = camera->mouse_states;
+    camera->mouse_states = 0;
+    game_camera_get_mouse_states(camera);
+    game_camera_detect_mouse_events(camera);
+    game_camera_create_input_events(camera);
   }
-  else
-    (camera->is_button_pressed = false); // no buttons registered when not focused
 
   Vector2 mouse_pos_delta = GetMouseDelta();
-  // float mouseWheelMove = GetMouseWheelMove();
+  float dt = GetFrameTime();
+  float mouse_wheel_delta = GetMouseWheelMove();
 
-  float direction[MOVE_LEFT + 1] = {
-      -game_camera_get_axis_speed(camera, MOVE_FRONT, camera->move_speed.z),
-      -game_camera_get_axis_speed(camera, MOVE_BACK, camera->move_speed.z),
-      game_camera_get_axis_speed(camera, MOVE_RIGHT, camera->move_speed.x),
-      game_camera_get_axis_speed(camera, MOVE_LEFT, camera->move_speed.x)};
+  float direction[] = 
+  {
+      -game_camera_get_axis_speed(camera, MOVE_FRONT, camera->move_speed.z, dt),
+      -game_camera_get_axis_speed(camera, MOVE_BACK, camera->move_speed.z, dt),
+      game_camera_get_axis_speed(camera, MOVE_RIGHT, camera->move_speed.x, dt),
+      game_camera_get_axis_speed(camera, MOVE_LEFT, camera->move_speed.x, dt)
+  };
 
-  bool rotate_mouse = (camera->mouse_button == MOUSE_BUTTON_MIDDLE && camera->is_button_pressed);
+  bool rotate_mouse = (IsMouseButtonDown(MOUSE_MIDDLE_BUTTON));
   if (rotate_mouse)
   {
     HideCursor();
@@ -174,11 +212,11 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
   }
 
   float pivot_heading_rotation =
-      game_camera_get_axis_speed(camera, ROTATE_RIGHT, camera->rotation_speed.x) -
-      game_camera_get_axis_speed(camera, ROTATE_LEFT, camera->rotation_speed.x);
+      game_camera_get_axis_speed(camera, ROTATE_RIGHT, camera->rotation_speed.x, dt) -
+      game_camera_get_axis_speed(camera, ROTATE_LEFT, camera->rotation_speed.x, dt);
   float pivot_pitch_rotation =
-      game_camera_get_axis_speed(camera, ROTATE_UP, camera->rotation_speed.y) -
-      game_camera_get_axis_speed(camera, ROTATE_DOWN, camera->rotation_speed.y);
+      game_camera_get_axis_speed(camera, ROTATE_UP, camera->rotation_speed.y, dt) -
+      game_camera_get_axis_speed(camera, ROTATE_DOWN, camera->rotation_speed.y, dt);
 
   if (pivot_heading_rotation)
     camera->view_angles.x -= pivot_heading_rotation * DEG2RAD;
@@ -201,9 +239,9 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
   move_vec.z = direction[MOVE_FRONT] - direction[MOVE_BACK];
 
   // Update zoom
-  camera->camera_pullback_dist += (-GetMouseWheelMove());
-  if (camera->camera_pullback_dist < 1)
-    camera->camera_pullback_dist = 1;
+  camera->camera_pullback_dist -= (mouse_wheel_delta);
+  camera->camera_pullback_dist = clamp_float(camera->camera_pullback_dist, 1, (camera->far_plane / 4));
+    
 
   Vector3 cam_pos = {.z = camera->camera_pullback_dist};
 
@@ -219,7 +257,7 @@ void game_camera_update(game_camera_t *camera, game_terrain_map_t *terrain_map)
   camera->ray_view_cam.target = camera->camera_pos;
   camera->ray_view_cam.position = Vector3Add(camera->camera_pos, cam_pos);
 
-  camera->click_timer -= GetFrameTime();
+  camera->click_timer -= dt;
 }
 
 static void game_camera_setup(game_camera_t *camera, float aspect)

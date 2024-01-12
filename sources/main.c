@@ -19,6 +19,8 @@
 
 char *mouse_strings[] = {"LMB", "RMB", "MMB"};
 
+// NOTE: need to add input event system, two event buffers
+
 int main(void)
 {
   //--------------------------------------------------------------------------
@@ -138,7 +140,7 @@ int main(void)
       game_entity_t *ent = &entities[i];
       if (ent->type == GAME_ENT_TYPE_ACTOR)
       {
-        entity_draw_actor(&ent->model);
+        entity_draw_actor(&ent->model, ent->team);
       }
     }
     // draw selection boxes
@@ -174,10 +176,6 @@ int main(void)
                         camera.camera_pos.y,
                         camera.camera_pos.z),
              10, 30, 20, WHITE);
-    if (camera.is_button_pressed)
-    {
-      DrawText(TextFormat("%s", mouse_strings[camera.mouse_button]), 100, 100, 20, GRAY);
-    }
 
     EndDrawing();
   }
@@ -199,8 +197,6 @@ int main(void)
 
   // Free entities here
   entity_unload_all(entities);
-
-  MemFree(terrain_map.value);
 
   CloseWindow();
 

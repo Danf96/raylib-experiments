@@ -1,4 +1,4 @@
 #pragma once
 #include "raylib.h"
 
-void entity_draw_actor(Model *model);
+void entity_draw_actor(Model *model, int team);
