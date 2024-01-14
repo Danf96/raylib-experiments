@@ -40,6 +40,7 @@ game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity
       .attack_radius = entity_create->attack_radius,
       .attack_damage = entity_create->attack_damage,
       .hit_points = entity_create->hit_points,
+      .hit_points_max = entity_create->hit_points,
       .team = entity_create->team,
   };
   entity.model = LoadModel(entity_create->model_path);
@@ -50,6 +51,7 @@ game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity
   return entities;
 }
 
+// cleanup function when program should end
 void entity_unload_all(game_entity_t entities[])
 {
   for (int i = 0; i < arrlen(entities); i++)
@@ -62,56 +64,86 @@ void entity_unload_all(game_entity_t entities[])
 
 void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt)
 {
-  // input processing when window is focused
+  // process all input events gathered in between ticks
   for (int i = 0; i < arrlen(camera->input_events); i++)
   {
     game_input_event_t *input_event = &camera->input_events[i];
-    if (input_event->event_type == LEFT_CLICK)
+    short target_id = -1;
+    // check all input event types, note that anything related to camera control is not checked,
+    // instead it's updated every frame rather than in the tick loop
+    switch (input_event->event_type)
     {
-      short id = entity_get_id(input_event->mouse_ray, entities);
-        if (id >= 0)
+      case LEFT_CLICK:
+        // select an entity or deselect current  list
+        target_id = entity_get_id(input_event->mouse_ray, entities);
+        if (target_id >= 0)
         {
           entity_remove_selected_all(selected);
-          entity_add_selected(id, selected);
+          entity_add_selected(target_id, selected);
           
         }
         else
         {
           entity_remove_selected_all(selected);
         }
-    }
-    else if (input_event->event_type == LEFT_CLICK_ADD)
-    {
-      short id = entity_get_id(input_event->mouse_ray, entities);
-      if (id >= 0)
-      {
-        entity_add_selected(id, selected);
-      }
-      else
-      {
-          entity_remove_selected_all(selected);
-      }
-    }
-    else if (input_event->event_type == LEFT_CLICK_ATTACK)
-    {
-      short target_id = entity_get_id(input_event->mouse_ray, entities);
-      if (target_id >= 0)
-      {
-        entity_set_attacking(target_id, entities, selected);
-      }
-    }
-    else if (input_event->event_type == RIGHT_CLICK)
-    {
-      Vector3 target = terrain_get_ray(input_event->mouse_ray, terrain_map, camera->near_plane, camera->far_plane);
-        for (int i = 0; i < GAME_MAX_SELECTED; i++)
+        break;
+      case LEFT_CLICK_ADD:
+        // add or deselect entity to selected list
+        target_id = entity_get_id(input_event->mouse_ray, entities);
+        if (target_id >= 0)
         {
-          if (selected[i] >= 0)
+          entity_add_selected(target_id, selected);
+        }
+        else
+        {
+            entity_remove_selected_all(selected);
+        }
+        break;
+      case LEFT_CLICK_ATTACK:
+        // force attack if valid ray regardless of entity teams
+        target_id = entity_get_id(input_event->mouse_ray, entities);
+        if (target_id >= 0)
+        {
+          entity_set_attacking(target_id, entities, selected);
+        }
+        break;
+      case RIGHT_CLICK:
+        target_id = entity_get_id(input_event->mouse_ray, entities);
+        if (target_id >= 0)
+        {
+          game_entity_t *target_ent = &entities[target_id];
+          if (target_ent->team != GAME_TEAM_PLAYER)
           {
-            entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
+            entity_set_attacking(target_id, entities, selected);
+          }
+          else {
+            for (int i = 0; i < GAME_MAX_SELECTED; i++)
+            {
+              if (selected[i] >= 0)
+              {
+                entity_set_moving((Vector2){target_ent->position.x, target_ent->position.z}, selected[i], entities);
+              }
+            }
           }
         }
+        else 
+        {
+          // no targets found, move to position instead
+          Vector3 target = terrain_get_ray(input_event->mouse_ray, terrain_map, camera->near_plane, camera->far_plane);
+          for (int i = 0; i < GAME_MAX_SELECTED; i++)
+          {
+            if (selected[i] >= 0)
+            {
+              entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
+            }
+          }
+        }
+        break;
+      default:
+        break;
     }
   }
+  // clear event list for next game tick
   arrsetlen(camera->input_events, 0);
 
   // updating all entities after input is processed
@@ -139,6 +171,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
         if (ent->anim_current_frame >= ent->anim[ent->anim_index].frameCount)
         {
           ent->state ^= GAME_ENT_STATE_ACTION;
+          memset(&ent->bbox, 0, sizeof ent->bbox); // hack to not let dead units be selected
           continue;
         }
         UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);

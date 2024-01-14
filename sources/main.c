@@ -70,8 +70,8 @@ int main(void)
       .scale = (Vector3){1.0f, 1.0f, 1.0f},
       .position = (Vector2){.x = 0, .y = 0.f},
       .offset_y = 0.0f,
-      .dimensions = (Vector3){1, 4, 1},
-      .dimensions_offset = (Vector3){0, 2, 0},
+      .dimensions = (Vector3){3, 6, 3},
+      .dimensions_offset = (Vector3){0, 3, 0},
       .model_path = "../resources/robot.glb",
       .model_anims_path = "../resources/robot.glb",
       .move_speed = 0.1f,
@@ -151,7 +151,9 @@ int main(void)
         short selected_id = selected[i];
         game_entity_t *ent = &entities[selected_id]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
         DrawCubeWires(Vector3Add(ent->dimensions_offset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
+        #if 0
         DrawCircle3D(ent->position, ent->attack_radius, (Vector3){1, 0, 0}, 90, RED);
+        #endif
       }
     }
 
@@ -169,6 +171,17 @@ int main(void)
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
 
     game_camera_end_mode_3d();
+
+    for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
+    {
+      if (selected[i] >= 0)
+      {
+        short selected_id = selected[i];
+        game_entity_t *ent = &entities[selected_id];
+        Vector2 pos = GetWorldToScreen((Vector3){ent->bbox.min.x, ent->bbox.max.y, ent->bbox.min.z}, camera.ray_view_cam);
+        DrawText(TextFormat("%.0f/%.0f", ent->hit_points, ent->hit_points_max), (int)pos.x, (int)pos.y, 20, BLUE);
+      }
+    }
 
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",

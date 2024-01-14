@@ -37,6 +37,7 @@ typedef struct
   uint16_t id;
   uint8_t team;
   uint8_t anim_index;
+  bool is_dirty;
   uint32_t anim_current_frame;
   int32_t anims_count;
   Model model;
@@ -55,16 +56,16 @@ typedef struct
   float attack_cooldown_max;
   float attack_cooldown;
   float hit_points;
+  float hit_points_max;
   game_entity_type type;
   BoundingBox bbox;
   game_entity_state state;
-  bool is_dirty;
 } game_entity_t;
 
 typedef struct
 {
-  uint8_t team;
   Vector3 scale;
+  uint8_t team;
   Vector2 position;
   Vector3 dimensions;
   Vector3 dimensions_offset;
@@ -75,10 +76,11 @@ typedef struct
   float attack_damage;
   float attack_cooldown_max;
   float hit_points;
+  game_entity_type type;
   char *model_path;
   char *model_anims_path;
-  game_entity_type type;
 } game_entity_create_t;
+
 
 game_entity_t * entity_add(game_entity_t entities[], game_entity_create_t *entity_create);
 
