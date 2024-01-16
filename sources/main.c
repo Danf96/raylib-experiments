@@ -26,6 +26,7 @@ int main(void)
   //--------------------------------------------------------------------------
   // Initialization
   //--------------------------------------------------------------------------
+  SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
   InitWindow(screenWidth, screenHeight, "raylib - demo");
 
 // textures, models, and shaders
@@ -38,6 +39,22 @@ int main(void)
 #endif
 
   Model skybox = skybox_init("../resources/ACID");
+
+  // lighting shader
+  Shader mesh_phong = LoadShader("../shaders/sun_light.vs", "../shaders/sun_light.fs");
+  mesh_phong.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(mesh_phong, "viewPos");
+  mesh_phong.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(mesh_phong, "model");
+  mesh_phong.locs[SHADER_LOC_MATRIX_PROJECTION] = GetShaderLocation(mesh_phong, "projection");
+  mesh_phong.locs[SHADER_LOC_MATRIX_VIEW] = GetShaderLocation(mesh_phong, "view");
+  // mesh_phong.locs[SHADER_LOC_MATRIX_NORMAL] = GetShaderLocation(mesh_phong, "normal");
+  // look into getAttribLocation, can be used for bones in the future
+  int ambient_loc = GetShaderLocation(mesh_phong, "ambient");
+  SetShaderValue(mesh_phong, ambient_loc, (float[3]){ 0.05f, 0.05f, 0.05f }, SHADER_UNIFORM_VEC3);
+
+  int sun_loc = GetShaderLocation(mesh_phong, "sunDir");
+  
+  SetShaderValue(mesh_phong, sun_loc, Vector3ToFloat(Vector3Normalize((Vector3){0.2f, -0.0f, 0.5f})), SHADER_UNIFORM_VEC3);
+
 
   // terrain
   Image disc_map = LoadImage("../resources/discmap.BMP");
@@ -88,6 +105,13 @@ int main(void)
 
   entities = entity_add(entities, &new_ent);
 
+  // hack to assign shader
+  for (int i = 0; i < arrlen(entities); i++)
+  {
+    for (int j = 0; j < entities[i].model.materialCount; j++)
+    entities[i].model.materials[j].shader = mesh_phong;
+  }
+
   short selected[GAME_MAX_SELECTED];
   memset(selected, -1, sizeof selected);
 
@@ -109,6 +133,7 @@ int main(void)
     // Update
     //----------------------------------------------------------------------
     game_camera_update(&camera, &terrain_map);
+    SetShaderValue(mesh_phong, mesh_phong.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.target, SHADER_UNIFORM_VEC3);
     sim_accumulator += GetFrameTime();
     while (sim_accumulator >= sim_dt)
     {
@@ -210,6 +235,7 @@ int main(void)
 
   // Free entities here
   entity_unload_all(entities);
+  UnloadShader(mesh_phong);
 
   CloseWindow();
 
