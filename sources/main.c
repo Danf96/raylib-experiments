@@ -17,7 +17,8 @@
 #define screenWidth 1280
 #define screenHeight 720
 
-char *mouse_strings[] = {"LMB", "RMB", "MMB"};
+bool is_select_visible;
+Rectangle rect;
 
 // NOTE: need to add input event system, two event buffers
 
@@ -28,6 +29,9 @@ int main(void)
   //--------------------------------------------------------------------------
   SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
   InitWindow(screenWidth, screenHeight, "raylib - demo");
+
+  // init two camera globals
+  is_select_visible = false;
 
 // textures, models, and shaders
 #if 0
@@ -195,8 +199,10 @@ int main(void)
     // skybox, to be drawn last
     DrawModel(skybox, (Vector3){0, 0, 0}, 1.0f, GREEN);
 
+
     game_camera_end_mode_3d();
 
+    // draw health for selected
     for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
     {
       if (selected[i] >= 0)
@@ -207,6 +213,15 @@ int main(void)
         DrawText(TextFormat("%.0f/%.0f", ent->hit_points, ent->hit_points_max), (int)pos.x, (int)pos.y, 20, BLUE);
       }
     }
+
+    // draw rectangle select
+    if (is_select_visible)
+    {
+      Vector2 current_new_pos = GetMousePosition();
+      Rectangle box = game_camera_get_mouse_rect(camera.mouse_old_pos, current_new_pos);
+      DrawRectangleLines(box.x, box.y, box.width, box.height, GREEN);
+    }
+
 
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",

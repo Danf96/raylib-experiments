@@ -1,4 +1,6 @@
+#include <stddef.h>
 #include "terrain.h"
+#include "raymath.h"
 // Modified version of RayLib heighmap generation
 Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
 {

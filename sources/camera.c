@@ -2,13 +2,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "camera.h"
+
 #include "raylib.h"
+#include "raymath.h"
 #include "rlgl.h"
 #include "stb_ds.h"
 
-#include "camera.h"
+#include "terrain.h"
 #include "util.h"
 
+#define MOUSE_MINIMUM_AREA (10.f)
+
+extern bool is_select_visible;
 
 static void game_camera_resize_view(game_camera_t *camera)
 {
@@ -38,38 +44,122 @@ static void game_camera_get_mouse_states(game_camera_t *camera)
 }
 static void game_camera_detect_mouse_events(game_camera_t *camera) 
 {
-  uint32_t mouse_changes = camera->mouse_states ^ camera->prev_mouse_states;
+  uint8_t mouse_changes = camera->mouse_states ^ camera->prev_mouse_states;
 
   camera->mouse_downs = mouse_changes & camera->mouse_states;
   camera->mouse_ups = mouse_changes & (~camera->mouse_states);
 }
 
+static float game_camera_get_mouse_area(Vector2 pos_new, Vector2 pos_old)
+{
+  double x = fabs(pos_new.x - pos_old.x);
+  double y = fabs(pos_new.y - pos_old.y);
+  return (float)(x * y);
+}
+
+// solve for top left corner, then get dimensions based on absolute value difference
+Rectangle game_camera_get_mouse_rect(Vector2 pos_old, Vector2 pos_new)
+{
+  Rectangle result = {0};
+  if (pos_old.x < pos_new.x)
+  {
+    result.x = pos_old.x;
+  }
+  else
+  {
+    result.x = pos_new.x;
+  }
+  if (pos_old.y < pos_new.y)
+  {
+    result.y = pos_old.y;
+  }
+  else
+  {
+    result.y = pos_new.y;
+  }
+  result.width = fabs(pos_new.x - pos_old.x);
+  result.height = fabs(pos_new.y - pos_old.y);
+  return result;
+}
+
 static void game_camera_create_input_events(game_camera_t *camera)
 {
+  bool is_new_event = false;
+  game_input_event_t new_event = {0};
   if (camera->mouse_downs)
   {
-    game_input_event_t new_event = {0};
     if (camera->mouse_downs & (1 << MOUSE_BUTTON_LEFT))
     {
+      is_select_visible = true;
       if (IsKeyDown(camera->controls_keys[MODIFIER_ADD]))
       {
-        new_event.event_type = LEFT_CLICK_ADD;
+        camera->mouse_old_pos = GetMousePosition();
+        new_event.event_type = LEFT_CLICK_ADD; // can remove
       }
       else if (IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
       {
         new_event.event_type = LEFT_CLICK_ATTACK;
+        new_event.mouse_ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam);
+        is_new_event = true;
       }
       else 
       {
-        new_event.event_type = LEFT_CLICK;
+        camera->mouse_old_pos = GetMousePosition();
+        new_event.event_type = LEFT_CLICK; // can remove
       }
     }
     if (camera->mouse_downs & (1 << MOUSE_BUTTON_RIGHT))
     {
       new_event.event_type = RIGHT_CLICK;
+      new_event.mouse_ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam);
+      is_new_event = true;
     }
-    new_event.mouse_ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam);
-    arrput(camera->input_events, new_event);
+  } 
+  if (camera->mouse_ups)
+  {
+    // TODO: implement system to store prev position, check if area is big enough to warrant group selection, if not, do regular event
+    if (camera->mouse_ups & (1 << MOUSE_BUTTON_LEFT))
+    {
+      is_select_visible = false;
+      if (IsKeyDown(camera->controls_keys[MODIFIER_ADD]))
+      {
+        Vector2 new_pos = GetMousePosition();
+        if (game_camera_get_mouse_area(new_pos, camera->mouse_old_pos) > MOUSE_MINIMUM_AREA)
+        {
+          new_event.event_type = LEFT_CLICK_ADD_GROUP;
+          new_event.mouse_rect = game_camera_get_mouse_rect(camera->mouse_old_pos, new_pos);
+        }
+        else
+        {
+          new_event.event_type = LEFT_CLICK_ADD;
+          new_event.mouse_ray = GetMouseRay(new_pos, camera->ray_view_cam);
+        }
+        is_new_event = true;
+      }
+      else if (!IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
+      {
+        Vector2 new_pos = GetMousePosition();
+        if (game_camera_get_mouse_area(new_pos, camera->mouse_old_pos) > MOUSE_MINIMUM_AREA)
+        {
+          new_event.event_type = LEFT_CLICK_GROUP;
+          new_event.mouse_rect = game_camera_get_mouse_rect(camera->mouse_old_pos, new_pos);
+        }
+        else 
+        {
+          new_event.event_type = LEFT_CLICK;
+          new_event.mouse_ray = GetMouseRay(new_pos, camera->ray_view_cam);
+        }
+        is_new_event = true;
+      }
+    }
+    if (camera->mouse_ups & (1 << MOUSE_BUTTON_RIGHT))
+    {
+      new_event.event_type = RIGHT_CLICK;
+    }
+  }
+  if (is_new_event)
+  {
+      arrput(camera->input_events, new_event);
   }
 }
 

@@ -1,13 +1,7 @@
 #pragma once
-#include <stddef.h>
+
 #include <stdint.h>
-#include <stdlib.h>
-
 #include "raylib.h"
-#include "raymath.h"
-
-#include "terrain.h"
-#include "camera.h"
 
 #define GAME_MAX_UNITS 100
 #define GAME_MAX_SELECTED 12
@@ -80,6 +74,9 @@ typedef struct
   char *model_path;
   char *model_anims_path;
 } game_entity_create_t;
+
+typedef struct game_camera_t game_camera_t;
+typedef struct game_terrain_map_t game_terrain_map_t;
 
 
 game_entity_t * entity_add(game_entity_t entities[], game_entity_create_t *entity_create);

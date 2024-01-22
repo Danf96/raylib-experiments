@@ -1,5 +1,6 @@
 #include "stb_ds.h"
 #include "models.h"
+#include "raylib.h"
 #include "scene.h"
 
 // Draw a model with extended parameters, will need to pass boneids and weights

@@ -1,6 +1,15 @@
 #include "scene.h"
+
 #include <string.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include "stb_ds.h"
+
+#include "raymath.h"
+
+
+#include "terrain.h"
+#include "camera.h"
 
 // robo punch is 5
 // NOTE: change array accesses to some sort of lookup (hash maybe)
@@ -136,6 +145,17 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
             {
               entity_set_moving((Vector2){target.x, target.z}, selected[i], entities);
             }
+          }
+        }
+        break;
+      case LEFT_CLICK_GROUP:
+        entity_remove_selected_all(selected);
+        for (int i = 0, j = 0; i < GAME_MAX_SELECTED && j < arrlen(entities); i++, j++)
+        {
+          Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
+          if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
+          {
+            entity_add_selected(entities[j].id, selected);
           }
         }
         break;

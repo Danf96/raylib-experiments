@@ -1,13 +1,11 @@
 #pragma once
 #include <stdlib.h>
 #include "raylib.h"
-#include "raymath.h"
-#include "stddef.h"
 
 // intended for all terrain code, everything outside this module should rely on
 // world coordinates
 
-typedef struct
+typedef struct game_terrain_map_t
 {
   int max_width;
   int max_height;

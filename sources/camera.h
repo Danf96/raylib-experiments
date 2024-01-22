@@ -1,12 +1,9 @@
 #pragma once
 
 #include "raylib.h"
-#include "raymath.h"
-#include "terrain.h"
 #include "stdint.h"
 // Based on Jeff M's Raylib extras camera, modified following methods from Game Engine Architecture
 // https://github.com/raylib-extras/extras-c/tree/main/cameras
-
 
 typedef enum
 {
@@ -31,15 +28,21 @@ typedef enum
   RIGHT_CLICK,
   LEFT_CLICK_ADD,
   LEFT_CLICK_ATTACK,
+  LEFT_CLICK_ADD_GROUP,
+  LEFT_CLICK_GROUP,
 } game_input_event_type;
 
 typedef struct 
 {
   game_input_event_type event_type;
-  Ray mouse_ray;
+  union 
+  {
+    Ray mouse_ray;
+    Rectangle mouse_rect;
+  };
 } game_input_event_t;
 
-typedef struct
+typedef struct game_camera_t
 {
   int controls_keys[LAST_CONTROL];
 
@@ -47,6 +50,7 @@ typedef struct
   uint8_t prev_mouse_states;  // last frame's states
   uint8_t mouse_downs;        // 1 = button pressed this frame
   uint8_t mouse_ups;          // 1 = button released this frame
+  Vector2 mouse_old_pos;
 
   game_input_event_t *input_events;
 
@@ -78,11 +82,15 @@ typedef struct
 
 } game_camera_t;
 
+typedef struct game_terrain_map_t game_terrain_map_t;
+
 void game_camera_init(game_camera_t *camera, float fov_y, Vector3 position, game_terrain_map_t *terrain_map);
 
 Vector3 game_camera_get_world_pos(game_camera_t *camera);
 
 // Vector3 game_camera_get_terrain_pos(game_camera_t *camera);
+
+Rectangle game_camera_get_mouse_rect(Vector2 pos_old, Vector2 pos_new);
 
 void game_camera_set_pos(game_camera_t *camera, Vector3 position);
 
