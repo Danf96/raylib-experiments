@@ -17,8 +17,8 @@
 #define screenWidth 1280
 #define screenHeight 720
 
+// convenient global for rectangle selection
 bool is_select_visible;
-Rectangle rect;
 
 // NOTE: need to add input event system, two event buffers
 
@@ -109,14 +109,14 @@ int main(void)
 
   entities = entity_add(entities, &new_ent);
 
-  // hack to assign shader
+  // assign blinn-phong shader to all entities
   for (int i = 0; i < arrlen(entities); i++)
   {
     for (int j = 0; j < entities[i].model.materialCount; j++)
     entities[i].model.materials[j].shader = mesh_phong;
   }
 
-  short selected[GAME_MAX_SELECTED];
+  short selected[GAME_MAX_SELECTED]; // storing capacity, or maintining a free list might be better, but this works for now
   memset(selected, -1, sizeof selected);
 
   SetTargetFPS(200);

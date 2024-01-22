@@ -12,7 +12,8 @@
 #include "terrain.h"
 #include "util.h"
 
-#define MOUSE_MINIMUM_AREA (10.f)
+// defined based on a reasonable zoom level, subject to change
+#define MOUSE_MINIMUM_AREA (150.f)
 
 extern bool is_select_visible;
 
@@ -117,10 +118,11 @@ static void game_camera_create_input_events(game_camera_t *camera)
   } 
   if (camera->mouse_ups)
   {
-    // TODO: implement system to store prev position, check if area is big enough to warrant group selection, if not, do regular event
+    // only tracking left mouse button mouse up events currently, right does not have any special states at the moment
+    // TODO: cleanup redundant assignments
     if (camera->mouse_ups & (1 << MOUSE_BUTTON_LEFT))
     {
-      is_select_visible = false;
+      is_select_visible = false; // toggle global for rectangle drawing
       if (IsKeyDown(camera->controls_keys[MODIFIER_ADD]))
       {
         Vector2 new_pos = GetMousePosition();
@@ -138,6 +140,7 @@ static void game_camera_create_input_events(game_camera_t *camera)
       }
       else if (!IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
       {
+        // only works with current number of modifiers since there are only three at the moment
         Vector2 new_pos = GetMousePosition();
         if (game_camera_get_mouse_area(new_pos, camera->mouse_old_pos) > MOUSE_MINIMUM_AREA)
         {
@@ -151,10 +154,6 @@ static void game_camera_create_input_events(game_camera_t *camera)
         }
         is_new_event = true;
       }
-    }
-    if (camera->mouse_ups & (1 << MOUSE_BUTTON_RIGHT))
-    {
-      new_event.event_type = RIGHT_CLICK;
     }
   }
   if (is_new_event)

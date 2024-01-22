@@ -103,10 +103,6 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
         {
           entity_add_selected(target_id, selected);
         }
-        else
-        {
-            entity_remove_selected_all(selected);
-        }
         break;
       case LEFT_CLICK_ATTACK:
         // force attack if valid ray regardless of entity teams
@@ -156,6 +152,16 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
           if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
           {
             entity_add_selected(entities[j].id, selected);
+          }
+        }
+        break;
+      case LEFT_CLICK_ADD_GROUP:
+        for (int i = 0, j = 0; i < GAME_MAX_SELECTED && j < arrlen(entities); i++, j++)
+        {
+          Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
+          if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
+          {
+            entity_add_selected_group(entities[j].id, selected);
           }
         }
         break;
@@ -366,18 +372,47 @@ short entity_get_id(Ray ray, game_entity_t entities[])
 
 void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED])
 {
+  short first_free_index;
+  bool is_free_index_found = false;
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
     if (selected[i] == selected_id)
     {
       selected[i] = -1;
-      break;
+      return; // already in, deselect
     }
-    if (selected[i] == -1)
+    if (!is_free_index_found && selected[i] == -1)  // get first index, then just keep checking to make sure id isn't already present
     {
-      selected[i] = selected_id;
-      break;
+      first_free_index = i;
+      is_free_index_found = true;
     }
+  }
+  if (is_free_index_found)
+  {
+    selected[first_free_index] = selected_id;
+  }
+}
+
+// does not deselect unlike the regular add selected function
+void entity_add_selected_group(short selected_id, short selected[GAME_MAX_SELECTED])
+{
+  short first_free_index;
+  bool is_free_index_found = false;
+  for (int i = 0; i < GAME_MAX_SELECTED; i++)
+  {
+    if (selected[i] == selected_id)
+    {
+      return; // already in, early return
+    }
+    if (!is_free_index_found && selected[i] == -1)  // get first index, then just keep checking to make sure id isn't already present
+    {
+      first_free_index = i;
+      is_free_index_found = true;
+    }
+  }
+  if (is_free_index_found)
+  {
+    selected[first_free_index] = selected_id;
   }
 }
 

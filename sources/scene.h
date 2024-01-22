@@ -98,6 +98,8 @@ void entity_resolve_attack(game_entity_t *ent, game_entity_t entities[]);
 
 void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
 
+void entity_add_selected_group(short selected_id, short selected[GAME_MAX_SELECTED]);
+
 void entity_remove_selected_all(short selected[GAME_MAX_SELECTED]);
 
 void entity_remove_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
