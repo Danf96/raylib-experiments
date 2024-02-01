@@ -11,6 +11,8 @@
 #include "terrain.h"
 #include "camera.h"
 
+#define ENT_ATTACK_RANGE_BUFFER = 0.1f
+
 // robo punch is 5
 // NOTE: change array accesses to some sort of lookup (hash maybe)
 static size_t GLOBAL_ID = 0;
@@ -28,8 +30,13 @@ typedef enum
 static void entity_set_animation(game_entity_t *ent, RobotAnims anim)
 {
   ent->anim_index = anim;
-  ent->anim_current_frame = 0;
+  // prevent constant stutter stepping
+  if (anim != ROBO_IDLE)
+  {
+    ent->anim_current_frame = 0;
+  }
 }
+
 
 game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity_create)
 {
@@ -45,6 +52,7 @@ game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity
       .move_speed = entity_create->move_speed,
       .is_dirty = true,
       .anim_index = ROBO_IDLE, // idle for the robot gltf
+      .anim_current_frame = (uint32_t)GetRandomValue(0, 100),
       .attack_cooldown_max = entity_create->attack_cooldown_max,
       .attack_radius = entity_create->attack_radius,
       .attack_damage = entity_create->attack_damage,
@@ -88,7 +96,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
         if (target_id >= 0)
         {
           entity_remove_selected_all(selected);
-          entity_add_selected(target_id, selected);
+          entity_add_selected(target_id, selected, false);
           
         }
         else
@@ -101,7 +109,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
         target_id = entity_get_id(input_event->mouse_ray, entities);
         if (target_id >= 0)
         {
-          entity_add_selected(target_id, selected);
+          entity_add_selected(target_id, selected, false);
         }
         break;
       case LEFT_CLICK_ATTACK:
@@ -151,7 +159,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
           Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
           if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
           {
-            entity_add_selected(entities[j].id, selected);
+            entity_add_selected(entities[j].id, selected, false);
           }
         }
         break;
@@ -161,7 +169,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
           Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
           if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
           {
-            entity_add_selected_group(entities[j].id, selected);
+            entity_add_selected(entities[j].id, selected, true);
           }
         }
         break;
@@ -196,6 +204,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
       {
         if (ent->anim_current_frame >= ent->anim[ent->anim_index].frameCount)
         {
+          // mark dead
           ent->state ^= GAME_ENT_STATE_ACTION;
           memset(&ent->bbox, 0, sizeof ent->bbox); // hack to not let dead units be selected
           continue;
@@ -266,6 +275,7 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
       }
       ent->anim_current_frame = (ent->anim_current_frame + 1) % ent->anim[ent->anim_index].frameCount;
     }
+    // note, UpdateModelAnimation treats all animations as looping
     UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
     if (ent->is_dirty)
     {
@@ -370,7 +380,14 @@ short entity_get_id(Ray ray, game_entity_t entities[])
   return selected_id;
 }
 
-void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED])
+/**
+ * @brief Adds new ID to the selected array if there is space
+ * 
+ * @param selected_id ID of entity
+ * @param selected array containing selected units
+ * @param is_group_selection flag for whether or not to deselect existing units or not
+ */
+void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], bool is_group_selection)
 {
   short first_free_index;
   bool is_free_index_found = false;
@@ -378,31 +395,11 @@ void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED])
   {
     if (selected[i] == selected_id)
     {
-      selected[i] = -1;
-      return; // already in, deselect
-    }
-    if (!is_free_index_found && selected[i] == -1)  // get first index, then just keep checking to make sure id isn't already present
-    {
-      first_free_index = i;
-      is_free_index_found = true;
-    }
-  }
-  if (is_free_index_found)
-  {
-    selected[first_free_index] = selected_id;
-  }
-}
-
-// does not deselect unlike the regular add selected function
-void entity_add_selected_group(short selected_id, short selected[GAME_MAX_SELECTED])
-{
-  short first_free_index;
-  bool is_free_index_found = false;
-  for (int i = 0; i < GAME_MAX_SELECTED; i++)
-  {
-    if (selected[i] == selected_id)
-    {
-      return; // already in, early return
+      if (!is_group_selection)
+      {
+        selected[i] = -1; // already in, deselect
+      }
+      return; 
     }
     if (!is_free_index_found && selected[i] == -1)  // get first index, then just keep checking to make sure id isn't already present
     {

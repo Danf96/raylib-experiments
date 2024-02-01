@@ -91,22 +91,18 @@ static void game_camera_create_input_events(game_camera_t *camera)
   {
     if (camera->mouse_downs & (1 << MOUSE_BUTTON_LEFT))
     {
-      is_select_visible = true;
-      if (IsKeyDown(camera->controls_keys[MODIFIER_ADD]))
+      Vector2 mouse_pos = GetMousePosition();
+      if(IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
       {
-        camera->mouse_old_pos = GetMousePosition();
-        new_event.event_type = LEFT_CLICK_ADD; // can remove
-      }
-      else if (IsKeyDown(camera->controls_keys[MODIFIER_ATTACK]))
-      {
+        is_select_visible = false;
         new_event.event_type = LEFT_CLICK_ATTACK;
-        new_event.mouse_ray = GetMouseRay(GetMousePosition(), camera->ray_view_cam);
+        new_event.mouse_ray = GetMouseRay(mouse_pos, camera->ray_view_cam);
         is_new_event = true;
       }
-      else 
+      else
       {
-        camera->mouse_old_pos = GetMousePosition();
-        new_event.event_type = LEFT_CLICK; // can remove
+        is_select_visible = true; // toggle global for UI
+        camera->mouse_old_pos = mouse_pos;
       }
     }
     if (camera->mouse_downs & (1 << MOUSE_BUTTON_RIGHT))
@@ -119,7 +115,6 @@ static void game_camera_create_input_events(game_camera_t *camera)
   if (camera->mouse_ups)
   {
     // only tracking left mouse button mouse up events currently, right does not have any special states at the moment
-    // TODO: cleanup redundant assignments
     if (camera->mouse_ups & (1 << MOUSE_BUTTON_LEFT))
     {
       is_select_visible = false; // toggle global for rectangle drawing
