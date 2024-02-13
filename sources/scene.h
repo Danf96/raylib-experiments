@@ -81,7 +81,11 @@ typedef struct game_terrain_map_t game_terrain_map_t;
 
 game_entity_t * entity_add(game_entity_t entities[], game_entity_create_t *entity_create);
 
-void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt);
+void scene_process_input(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED]);
+
+void scene_process_ai(game_entity_t entities[]);
+
+void scene_update_entities(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt);
 
 BoundingBox entity_bbox_derive(Vector3 *position, Vector3 *dimensions_offset, Vector3 *dimensions);
 
@@ -91,18 +95,21 @@ void entity_set_moving(Vector2 position, short entity_id, game_entity_t *entitie
 
 void entity_set_attacking(uint16_t target_id, game_entity_t *entities, short selected[GAME_MAX_SELECTED]);
 
+void entity_attack_closest_ai(game_entity_t *entity, game_entity_t entities[]);
+
+void entity_flee_closest_ai(game_entity_t *entity, game_entity_t entities[]);
 
 bool entity_check_attack(game_entity_t *ent, game_entity_t entities[]);
 
 void entity_resolve_attack(game_entity_t *ent, game_entity_t entities[]);
 
-void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], bool is_group_selection);
+void scene_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], bool is_group_selection);
 
-void entity_remove_selected_all(short selected[GAME_MAX_SELECTED]);
+void scene_remove_selected_all(short selected[GAME_MAX_SELECTED]);
 
-void entity_remove_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
+void scene_remove_selected(short selected_id, short selected[GAME_MAX_SELECTED]);
 
-short entity_get_id(Ray ray, game_entity_t entities[]);
+short scene_get_id(Ray ray, game_entity_t entities[]);
 
 void entity_dirty_update(Vector3 old_pos, game_entity_t *ent, game_terrain_map_t *terrain_map);
 

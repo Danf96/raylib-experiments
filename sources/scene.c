@@ -11,13 +11,12 @@
 #include "terrain.h"
 #include "camera.h"
 
-#define ENT_ATTACK_RANGE_BUFFER = 0.1f
+#define ENT_AI_VISIBILITY_RADIUS 20.f
+#define ENT_AI_FLEE_THRESHOLD 0.3f
 
-// robo punch is 5
 // NOTE: change array accesses to some sort of lookup (hash maybe)
 static size_t GLOBAL_ID = 0;
 
-// NOTE: set a minimum pixel area to do dragging, otherwise consider a single click.
 
 typedef enum
 {
@@ -59,6 +58,7 @@ game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity
       .hit_points = entity_create->hit_points,
       .hit_points_max = entity_create->hit_points,
       .team = entity_create->team,
+      .target_id = -1,
   };
   entity.model = LoadModel(entity_create->model_path);
   entity.anim = LoadModelAnimations(entity_create->model_anims_path, &entity.anims_count);
@@ -79,9 +79,9 @@ void entity_unload_all(game_entity_t entities[])
   arrfree(entities);
 }
 
-void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt)
+void scene_process_input(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED])
 {
-  // process all input events gathered in between ticks
+    // process all input events gathered in between ticks
   for (int i = 0; i < arrlen(camera->input_events); i++)
   {
     game_input_event_t *input_event = &camera->input_events[i];
@@ -92,36 +92,40 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
     {
       case LEFT_CLICK:
         // select an entity or deselect current  list
-        target_id = entity_get_id(input_event->mouse_ray, entities);
+        target_id = scene_get_id(input_event->mouse_ray, entities);
         if (target_id >= 0)
         {
-          entity_remove_selected_all(selected);
-          entity_add_selected(target_id, selected, false);
+          scene_remove_selected_all(selected);
+          scene_add_selected(target_id, selected, false);
           
         }
         else
         {
-          entity_remove_selected_all(selected);
+          scene_remove_selected_all(selected);
         }
         break;
       case LEFT_CLICK_ADD:
         // add or deselect entity to selected list
-        target_id = entity_get_id(input_event->mouse_ray, entities);
+        target_id = scene_get_id(input_event->mouse_ray, entities);
         if (target_id >= 0)
         {
-          entity_add_selected(target_id, selected, false);
+          // don't add enemies to existing player group or vice versa
+          if (entities[target_id].team == GAME_TEAM_PLAYER && entities[selected[0]].team == GAME_TEAM_PLAYER)
+          {
+            scene_add_selected(target_id, selected, false);
+          }
         }
         break;
       case LEFT_CLICK_ATTACK:
         // force attack if valid ray regardless of entity teams
-        target_id = entity_get_id(input_event->mouse_ray, entities);
+        target_id = scene_get_id(input_event->mouse_ray, entities);
         if (target_id >= 0)
         {
           entity_set_attacking(target_id, entities, selected);
         }
         break;
       case RIGHT_CLICK:
-        target_id = entity_get_id(input_event->mouse_ray, entities);
+        target_id = scene_get_id(input_event->mouse_ray, entities);
         if (target_id >= 0)
         {
           game_entity_t *target_ent = &entities[target_id];
@@ -153,23 +157,16 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
         }
         break;
       case LEFT_CLICK_GROUP:
-        entity_remove_selected_all(selected);
-        for (int i = 0, j = 0; i < GAME_MAX_SELECTED && j < arrlen(entities); i++, j++)
-        {
-          Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
-          if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
-          {
-            entity_add_selected(entities[j].id, selected, false);
-          }
-        }
-        break;
+        scene_remove_selected_all(selected);
+        // implicit fallthrough, 
       case LEFT_CLICK_ADD_GROUP:
         for (int i = 0, j = 0; i < GAME_MAX_SELECTED && j < arrlen(entities); i++, j++)
         {
+          if (entities[j].team != GAME_TEAM_PLAYER) continue; // only group select player units
           Vector2 ent_pos = GetWorldToScreen(entities[j].position, camera->ray_view_cam);
           if (CheckCollisionPointRec(ent_pos, input_event->mouse_rect) == true)
           {
-            entity_add_selected(entities[j].id, selected, true);
+            scene_add_selected(entities[j].id, selected, true);
           }
         }
         break;
@@ -179,7 +176,29 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
   }
   // clear event list for next game tick
   arrsetlen(camera->input_events, 0);
+}
 
+void scene_process_ai(game_entity_t entities[])
+{
+  for (size_t i = 0; i < arrlen(entities); i++)
+  {
+    game_entity_t *ent = &entities[i];
+    if (ent->team == GAME_TEAM_AI && !(ent->state & GAME_ENT_STATE_DEAD))
+    {
+      if ((ent->hit_points / ent->hit_points_max) >= ENT_AI_FLEE_THRESHOLD)
+      {
+        entity_attack_closest_ai(ent, entities);
+      }
+      else 
+      {
+        entity_flee_closest_ai(ent, entities);
+      }
+    }
+  }
+}
+
+void scene_update_entities(game_camera_t *camera, game_entity_t entities[], game_terrain_map_t *terrain_map, short selected[GAME_MAX_SELECTED], float dt)
+{
   // updating all entities after input is processed
   for (size_t i = 0; i < arrlen(entities); i++)
   {
@@ -198,7 +217,6 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
           entity_resolve_attack(ent, entities);
           entity_set_animation(ent, ROBO_IDLE);
         }
-        UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
       }
       else if (ent->state & GAME_ENT_STATE_DEAD)
       {
@@ -209,8 +227,8 @@ void entity_update_all(game_camera_t *camera, game_entity_t entities[], game_ter
           memset(&ent->bbox, 0, sizeof ent->bbox); // hack to not let dead units be selected
           continue;
         }
-        UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
       }
+      UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
     }
     else
     {
@@ -316,7 +334,7 @@ void entity_bbox_update(Vector3 position, BoundingBox *bbox)
   bbox->min = Vector3Add(bbox->min, position);
 }
 
-void entity_set_moving(Vector2 position, short entity_id, game_entity_t *entities)
+void entity_set_moving(Vector2 position, short entity_id, game_entity_t entities[])
 {
   // used purely for move orders, negates attack
   game_entity_t *ent = &entities[entity_id];
@@ -325,7 +343,7 @@ void entity_set_moving(Vector2 position, short entity_id, game_entity_t *entitie
   entity_set_animation(ent, ROBO_MOVING);
 }
 
-void entity_set_attacking(uint16_t target_id, game_entity_t *entities, short selected[GAME_MAX_SELECTED])
+void entity_set_attacking(uint16_t target_id, game_entity_t entities[], short selected[GAME_MAX_SELECTED])
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {
@@ -335,6 +353,65 @@ void entity_set_attacking(uint16_t target_id, game_entity_t *entities, short sel
       entities[selected[i]].state = GAME_ENT_STATE_ATTACKING;
       entity_set_animation(&entities[selected[i]], ROBO_MOVING);
     }
+  }
+}
+
+void entity_attack_closest_ai(game_entity_t *entity, game_entity_t entities[])
+{
+  Vector2 source_pos = (Vector2){entity->position.x, entity->position.z};
+  float min_distance = __FLT_MAX__;
+  short closest_id = -1;
+  // iterate over entities and find closest living player to attack
+  for (size_t i = 0; i < arrlen(entities); i++)
+  {
+    game_entity_t *target_entity = &entities[i];
+    if (target_entity == entity) continue;
+    if (target_entity->team == GAME_TEAM_PLAYER && target_entity->hit_points > 0)
+    {
+      Vector2 dest_pos = (Vector2){target_entity->position.x, target_entity->position.z};
+      float current_distance = Vector2Distance(source_pos, dest_pos);
+      if (current_distance < min_distance)
+      {
+        min_distance = current_distance;
+        closest_id = i;
+      }
+    }
+  }
+  if (closest_id != -1 && entity->target_id != closest_id)
+  {
+    entity->target_id = closest_id;
+    entity->state = GAME_ENT_STATE_ATTACKING;
+    entity_set_animation(entity, ROBO_MOVING);
+  }
+}
+
+void entity_flee_closest_ai(game_entity_t *entity, game_entity_t entities[])
+{
+  Vector2 source_pos = (Vector2){entity->position.x, entity->position.z};
+  float min_distance = __FLT_MAX__;
+  short closest_id = -1;
+  // iterate over entities and find closest living player to attack
+  for (size_t i = 0; i < arrlen(entities); i++)
+  {
+    game_entity_t *target_entity = &entities[i];
+    if (target_entity == entity) continue;
+    if (target_entity->team == GAME_TEAM_PLAYER && target_entity->hit_points > 0)
+    {
+      Vector2 dest_pos = (Vector2){target_entity->position.x, target_entity->position.z};
+      float current_distance = Vector2Distance(source_pos, dest_pos);
+      if (current_distance < min_distance)
+      {
+        min_distance = current_distance;
+        closest_id = i;
+      }
+    }
+  }
+  if (closest_id != -1)
+  {
+    Vector2 flee_vector = Vector2Subtract(source_pos, (Vector2){entities[closest_id].position.x, entities[closest_id].position.z});
+    entity->target_pos = Vector2Add(flee_vector, source_pos);
+    entity->state = GAME_ENT_STATE_MOVING;
+    entity_set_animation(entity, ROBO_MOVING);
   }
 }
 
@@ -361,7 +438,7 @@ void entity_resolve_attack(game_entity_t *ent, game_entity_t entities[])
   }
 }
 
-short entity_get_id(Ray ray, game_entity_t entities[])
+short scene_get_id(Ray ray, game_entity_t entities[])
 {
   float closest_hit = __FLT_MAX__;
   short selected_id = -1;
@@ -372,7 +449,7 @@ short entity_get_id(Ray ray, game_entity_t entities[])
     {
       if (collision.distance < closest_hit)
       {
-        selected_id = entities[i].id;
+        selected_id = i;
         closest_hit = collision.distance;
       }
     }
@@ -387,7 +464,7 @@ short entity_get_id(Ray ray, game_entity_t entities[])
  * @param selected array containing selected units
  * @param is_group_selection flag for whether or not to deselect existing units or not
  */
-void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], bool is_group_selection)
+void scene_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], bool is_group_selection)
 {
   short first_free_index;
   bool is_free_index_found = false;
@@ -413,12 +490,12 @@ void entity_add_selected(short selected_id, short selected[GAME_MAX_SELECTED], b
   }
 }
 
-void entity_remove_selected_all(short selected[GAME_MAX_SELECTED])
+void scene_remove_selected_all(short selected[GAME_MAX_SELECTED])
 {
   memset(selected, -1, sizeof(*selected * GAME_MAX_SELECTED));
 }
 
-void entity_remove_selected(short selectedId, short selected[GAME_MAX_SELECTED])
+void scene_remove_selected(short selectedId, short selected[GAME_MAX_SELECTED])
 {
   for (int i = 0; i < GAME_MAX_SELECTED; i++)
   {

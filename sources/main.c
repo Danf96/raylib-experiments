@@ -125,6 +125,8 @@ int main(void)
   game_camera_init(&camera, 45.0f, (Vector3){0, 0, 0}, &terrain_map);
 
   float sim_accumulator = 0;
+  float sim_ai_accumulator = 0;
+  float sim_ai_dt = 1.f; // how often ai calculations should be made
   float sim_dt = 1.f / 60.f; // how many times a second calculations should be made
 
   //--------------------------------------------------------------------------
@@ -138,10 +140,18 @@ int main(void)
     //----------------------------------------------------------------------
     game_camera_update(&camera, &terrain_map);
     SetShaderValue(mesh_phong, mesh_phong.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.target, SHADER_UNIFORM_VEC3);
-    sim_accumulator += GetFrameTime();
+    float dt = GetFrameTime();
+    sim_accumulator += dt;
+    sim_ai_accumulator += dt;
+    while (sim_ai_accumulator >= sim_ai_dt)
+    {
+      scene_process_ai(entities);
+      sim_ai_accumulator -= sim_ai_dt;
+    }
     while (sim_accumulator >= sim_dt)
     {
-      entity_update_all(&camera, entities, &terrain_map, selected, sim_dt);
+      scene_process_input(&camera, entities, &terrain_map, selected);
+      scene_update_entities(&camera, entities, &terrain_map, selected, sim_dt);
       sim_accumulator -= sim_dt;
     }
 
@@ -179,6 +189,11 @@ int main(void)
       {
         short selected_id = selected[i];
         game_entity_t *ent = &entities[selected_id]; // only works right now, will not work if deleting entities is added since selectedId may not necessarily map to an index
+        if (ent->state & GAME_ENT_STATE_DEAD)
+        {
+          selected[i] = -1; // deselect
+          continue;
+        }
         DrawCubeWires(Vector3Add(ent->dimensions_offset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, MAGENTA);
         #if 0
         DrawCircle3D(ent->position, ent->attack_radius, (Vector3){1, 0, 0}, 90, RED);
