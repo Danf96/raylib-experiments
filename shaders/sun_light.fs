@@ -14,9 +14,9 @@ in vec3 fragNormal;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 
-uniform vec3 sunDir;
 uniform vec3 ambient;
-uniform vec3 viewPos;
+uniform vec3 viewPos; // camera position
+uniform vec3 sunDir;
 
 // Output fragment color
 out vec4 finalColor;
@@ -25,7 +25,7 @@ out vec4 finalColor;
 
 const vec3 lightColor = vec3(1.0, 1.0, 1.0);
 const vec3 specColor = vec3(1.0, 1.0, 1.0);
-const float shininess = 32.0;
+const float shininess = 22.0;
 const float screenGamma = 2.2;
 
 float when_gt(float x, float y) {
@@ -36,22 +36,28 @@ void main()
 {
     // Texel color fetching from texture sampler
     vec4 texelColor = texture(texture0, fragTexCoord);
-
+    vec3 lightDot = vec3(0.0);
     vec3 normal = normalize(fragNormal);
-    float lambertian = max(dot(sunDir, normal), 0.0);
-    float specular = 0.0;
+    vec3 viewD = normalize(viewPos - fragPosition);
+    vec3 specular = vec3(0.0);
 
-    vec3 viewDir = normalize(-fragPosition);
-    vec3 halfDir = normalize(sunDir + viewDir);
-    float specAngle = max(dot(halfDir, normal), 0.0);
-    specular = pow(specAngle, shininess) * when_gt(lambertian, 0.0);
+    vec3 light = vec3(0.0);
 
-    vec3 colorLinear = texelColor.xyz * ambient + 
-                       texelColor.xyz * colDiffuse.xyz * lambertian * lightColor +
-                       specColor * specular * lightColor;
-    vec3 colorGammaCorrected = pow(colorLinear, vec3(1.0 / screenGamma));
 
-    gl_FragColor = vec4(colorGammaCorrected, 1.0);
+    light = -normalize(sunDir);
+
+    float NdotL = max(dot(normal, light), 0.0);
+    lightDot += lightColor*NdotL;
+
+    float specCo = 0.0;
+    specCo = pow(max(0.0, dot(viewD, reflect(-(light), normal))), shininess) * when_gt(NdotL, 0.0);
+    specular += specCo;
+
+    finalColor = (texelColor*((colDiffuse + vec4(specular, 1.0))*vec4(lightDot, 1.0)));
+    finalColor += texelColor*vec4(ambient/10.0, 1.0)*colDiffuse;
+
+    // Gamma correction
+    finalColor = pow(finalColor, vec4(1.0/2.2));
 
 }
 

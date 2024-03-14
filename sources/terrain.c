@@ -197,7 +197,7 @@ Vector3 terrain_get_ray(Ray ray, game_terrain_map_t *terrain_map, float z_near, 
   Vector3 ray_pos = terrain_convert_from_world_pos(ray.position, terrain_map);
 
   // change in direction in 3 axes
-  float t_delta = 0.5f;
+  float t_delta = 1.f;
   Vector3 p;
   bool intersection = false;
   for (float t = z_near; t < z_far; t += t_delta)
@@ -210,9 +210,19 @@ Vector3 terrain_get_ray(Ray ray, game_terrain_map_t *terrain_map, float z_near, 
     float heightY = terrain_map->value[(int)floor(p.x) * terrain_map->max_width + (int)floor(p.z)];
     if (p.y < heightY)
     {
+      if (!intersection)
+      {
+        t -= 1.f;
+        t_delta = 0.1f;
+        intersection = true;
+      }
+      
       // NOTE: does redundant calulcations currently, could move to a new function (currently broken when height is adjusted and camera is facing directly above unit)
       // p.y = GetAdjustedHeight(p, terrainMap);
-      return terrain_convert_to_world_pos(p, terrain_map);
+      else 
+      {
+        return terrain_convert_to_world_pos(p, terrain_map);
+      }
     }
   }
   return (Vector3){0};

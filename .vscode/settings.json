@@ -77,6 +77,8 @@
         "csignal": "cpp",
         "shared_mutex": "cpp",
         "camera.h": "c",
-        "raylib.h": "c"
+        "raylib.h": "c",
+        "stdlib.h": "c",
+        "stdint.h": "c"
     }
 }

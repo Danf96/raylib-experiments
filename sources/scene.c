@@ -10,6 +10,7 @@
 
 #include "terrain.h"
 #include "camera.h"
+#include "models.h"
 
 #define ENT_AI_VISIBILITY_RADIUS 20.f
 #define ENT_AI_FLEE_THRESHOLD 0.3f
@@ -60,7 +61,7 @@ game_entity_t *entity_add(game_entity_t entities[], game_entity_create_t *entity
       .team = entity_create->team,
       .target_id = -1,
   };
-  entity.model = LoadModel(entity_create->model_path);
+  entity.model = entity_load_model(entity_create->model_path);
   entity.anim = LoadModelAnimations(entity_create->model_anims_path, &entity.anims_count);
   entity.bbox = entity_bbox_derive(&entity.position, &entity.dimensions_offset, &entity.dimensions);
   arrput(entities, entity);
