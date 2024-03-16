@@ -14,9 +14,9 @@ in vec3 fragNormal;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 
-uniform vec3 ambient;
 uniform vec3 viewPos; // camera position
 uniform vec3 sunDir;
+uniform vec3 ambient;
 
 // Output fragment color
 out vec4 finalColor;
@@ -27,6 +27,7 @@ const vec3 lightColor = vec3(1.0, 1.0, 1.0);
 const vec3 specColor = vec3(1.0, 1.0, 1.0);
 const float shininess = 22.0;
 const float screenGamma = 2.2;
+
 
 float when_gt(float x, float y) {
   return max(sign(x - y), 0.0);

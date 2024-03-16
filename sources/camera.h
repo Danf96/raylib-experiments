@@ -103,3 +103,18 @@ void game_camera_begin_mode_3d(game_camera_t *camera);
 void game_camera_end_mode_3d(void);
 
 void game_camera_input_clear(game_camera_t *camera);
+
+typedef struct shadow_camera_t
+{
+  Camera ray_view_cam;
+  Matrix projection;
+  Matrix view;
+  double near_plane;
+  double far_plane;
+
+} shadow_camera_t;
+
+void shadow_camera_init(shadow_camera_t *camera, Vector3 position, float fovy, float near_plane, float far_plane, CameraProjection projection_type);
+void shadow_camera_begin_mode_3d(shadow_camera_t *camera);
+void shadow_camera_end_mode_3d(void);
+

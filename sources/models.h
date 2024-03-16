@@ -17,3 +17,6 @@ Model entity_load_model(const char *fileName);
 void entity_upload_mesh(Mesh *mesh, bool dynamic);
 
 RenderTexture2D LoadRenderTextureWithDepthTexture(int width, int height);
+
+void ShadowMapEnd(void);
+void ShadowMapBegin(RenderTexture2D shadowMap);

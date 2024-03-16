@@ -420,7 +420,9 @@ RenderTexture2D LoadRenderTextureWithDepthTexture(int width, int height)
         rlEnableFramebuffer(target.id);
 
         // Create color texture (default to RGBA)
+        #if 1
         target.texture.id = rlLoadTexture(NULL, width, height, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8, 1);
+        #endif
         target.texture.width = width;
         target.texture.height = height;
         target.texture.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
@@ -433,8 +435,13 @@ RenderTexture2D LoadRenderTextureWithDepthTexture(int width, int height)
         target.depth.format = 19;       //DEPTH_COMPONENT_24BIT?
         target.depth.mipmaps = 1;
 
+        rlTextureParameters(target.depth.id, RL_TEXTURE_WRAP_S, RL_TEXTURE_WRAP_CLAMP);
+        rlTextureParameters(target.depth.id, RL_TEXTURE_WRAP_T, RL_TEXTURE_WRAP_CLAMP);
+
         // Attach color texture and depth texture to FBO
+        #if 1
         rlFramebufferAttach(target.id, target.texture.id, RL_ATTACHMENT_COLOR_CHANNEL0, RL_ATTACHMENT_TEXTURE2D, 0);
+        #endif
         rlFramebufferAttach(target.id, target.depth.id, RL_ATTACHMENT_DEPTH, RL_ATTACHMENT_TEXTURE2D, 0);
 
         // Check if fbo is complete with attachments (valid)

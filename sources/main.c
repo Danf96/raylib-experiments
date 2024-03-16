@@ -7,6 +7,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+#include "external/glad.h"
 
 #include "camera.h"
 #include "scene.h"
@@ -42,6 +43,8 @@ int main(void)
   SetTextureFilter(bill, TEXTURE_FILTER_ANISOTROPIC_16X);
 #endif
 
+
+
   Model skybox = skybox_init("../resources/dsky");
 
   // lighting shader
@@ -57,32 +60,39 @@ int main(void)
 
   
 
-  Vector3 sun_dir = Vector3Normalize((Vector3){0.3f, -1.f, 0.2f});
+  
   
   
 
+  #if 1
   // depth map
   Shader depth_shader = LoadShader("../shaders/depth_shader.vs", "../shaders/depth_shader.fs");
-  depth_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(depth_shader, "model");
+  //depth_shader.locs[SHADER_LOC_MATRIX_MODEL] = GetShaderLocation(depth_shader, "model");
   int depth_loc = GetShaderLocation(depth_shader, "lightSpaceMatrix");
 
 
-  
-  Matrix lightProjection = MatrixOrtho(-50.0f, 50.0f, -50.0f, 50.0f, 0.1f, 50.f);
-
-
-  Matrix lightView = MatrixLookAt((Vector3){0.0f, 30.0f, 0.0f}, (Vector3){0}, (Vector3){0.0f, 1.0f, 0.0f});
-  Matrix lightSpaceMatrix = MatrixMultiply(lightProjection, lightView);
+  //Matrix lightProjection = MatrixOrtho(-45.0, 45.0, -45.0, 45.0, 1.0f, 45.f);
+  //Matrix lightView = MatrixLookAt((Vector3){0.f, 18.f, 0.f}, (Vector3){0.f, 0.f, 0.f}, (Vector3){0.f, 1.f, 0.f});
+  Matrix lightSpaceMatrix = MatrixIdentity();
 
   // lightSpaceMatrix = MatrixTranspose(lightSpaceMatrix);
   //Matrix lightSpace = MatrixMultiply(GetCameraMatrix(sun_camera), MatrixOrtho(-35.0f, 35.0f, -35.0f, 35.0f, RL_CULL_DISTANCE_NEAR, 100.f));
-  // SetShaderValueMatrix(depth_shader, depth_loc, lightSpaceMatrix);
+  //SetShaderValueMatrix(depth_shader, depth_loc, lightSpaceMatrix);
+  //shadow cam here
+  shadow_camera_t shadow_cam = {0};
+  #if 1
+  shadow_camera_init(&shadow_cam, (Vector3){50.f, 200.f, -10.f}, 90.f, 1.f, 300.f, CAMERA_ORTHOGRAPHIC);
+  #else
+  shadow_camera_init(&shadow_cam, (Vector3){0.f, 100.f, -4.f}, 90.f, 1.f, 150.f, CAMERA_ORTHOGRAPHIC);
+  #endif
+  Vector3 sun_dir = Vector3Normalize(Vector3Subtract((Vector3){0}, shadow_cam.ray_view_cam.position));
   
   
   // entity shadows
   RenderTexture2D shadow_text = {0};
-  shadow_text = LoadRenderTextureWithDepthTexture(1024, 1024);
+  shadow_text = LoadRenderTextureWithDepthTexture(8192, 8192);
   //SetTextureFilter(shadow_text.depth, TEXTURE_FILTER_TRILINEAR);
+  #endif
 
 
   // terrain
@@ -92,7 +102,12 @@ int main(void)
   game_terrain_map_t terrain_map = (game_terrain_map_t){.max_width = disc_map.width, .max_height = disc_map.height};
   Shader terrain_shadow = LoadShader("../shaders/terrain_shadow.vs", "../shaders/terrain_shadow.fs");
   terrain_shadow.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(terrain_shadow, "viewPos");
+  int light_matrix = GetShaderLocation(terrain_shadow, "lightSpaceMatrix");
+  int sun_pos = GetShaderLocation(terrain_shadow, "lightPos");
+  #if 0
   SetShaderValueMatrix(terrain_shadow, GetShaderLocation(terrain_shadow, "lightSpaceMatrix"), lightSpaceMatrix);
+  rlDisableShader();
+  #endif
 
   int sun_loc[] = {GetShaderLocation(mesh_phong, "sunDir"), GetShaderLocation(terrain_shadow, "sunDir")};
   SetShaderValue(mesh_phong, sun_loc[0], Vector3ToFloat(sun_dir), SHADER_UNIFORM_VEC3);
@@ -111,6 +126,10 @@ int main(void)
   terrain_material.maps[MATERIAL_MAP_METALNESS].texture = shadow_map;
   terrain_material.maps[MATERIAL_MAP_NORMAL].texture = shadow_text.depth;
 
+  SetTextureFilter(shadow_text.depth, TEXTURE_FILTER_TRILINEAR);
+  SetTextureFilter(shadow_text.depth, TEXTURE_FILTER_ANISOTROPIC_16X);
+  
+
 
   GenTextureMipmaps(&color_map);
   SetTextureWrap(color_map, TEXTURE_WRAP_REPEAT);
@@ -121,6 +140,7 @@ int main(void)
   SetTextureWrap(shadow_map, TEXTURE_WRAP_REPEAT);
   SetTextureFilter(shadow_map, TEXTURE_FILTER_TRILINEAR);
   SetTextureFilter(shadow_map, TEXTURE_FILTER_ANISOTROPIC_16X);
+  
 
   UnloadImage(disc_map);
 
@@ -148,15 +168,29 @@ int main(void)
   entities = entity_add(entities, &new_ent);
   new_ent.position.x = 0;
   new_ent.position.y = 10;
-  new_ent.team = GAME_TEAM_AI;
+  
 
   entities = entity_add(entities, &new_ent);
 
   new_ent.position.x = 20;
   entities = entity_add(entities, &new_ent);
-  new_ent.position.y = 3;
+
+  new_ent.position.y = 5;
   entities = entity_add(entities, &new_ent);
-  new_ent.position.x = 5;
+
+  new_ent.position.x = 10;
+  entities = entity_add(entities, &new_ent);
+
+  new_ent.position.x = -5;
+  new_ent.position.y = 5;
+  new_ent.team = GAME_TEAM_AI;
+  entities = entity_add(entities, &new_ent);
+
+  new_ent.position.y = -10;
+  entities = entity_add(entities, &new_ent);
+
+  new_ent.position.x = 7;
+  new_ent.position.y = 9;
   entities = entity_add(entities, &new_ent);
 
   
@@ -168,6 +202,8 @@ int main(void)
 
   game_camera_t camera = {0};
   game_camera_init(&camera, 45.0f, (Vector3){0, 0, 0}, &terrain_map);
+
+
 
   //testing
   //Shader deb = LoadShader("../shaders/debug_quad.vs", "../shaders/debug_quad.fs");
@@ -201,8 +237,10 @@ int main(void)
     // Update
     //----------------------------------------------------------------------
     game_camera_update(&camera, &terrain_map);
-    SetShaderValue(mesh_phong, mesh_phong.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.target, SHADER_UNIFORM_VEC3);
-    SetShaderValue(terrain_shadow, terrain_shadow.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.target, SHADER_UNIFORM_VEC3);
+    SetShaderValue(mesh_phong, mesh_phong.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.position, SHADER_UNIFORM_VEC3);
+    SetShaderValue(terrain_shadow, terrain_shadow.locs[SHADER_LOC_VECTOR_VIEW], &camera.ray_view_cam.position, SHADER_UNIFORM_VEC3);
+    SetShaderValue(terrain_shadow, sun_pos, &shadow_cam.ray_view_cam.position, SHADER_UNIFORM_VEC3);
+
     float dt = GetFrameTime();
     sim_accumulator += dt;
     sim_ai_accumulator += dt;
@@ -225,10 +263,11 @@ int main(void)
     // Initializes render texture for drawing
 
     // First update shadow map
+    #if 0
     BeginTextureMode(shadow_text);
     rlClearScreenBuffers();
-    rlSetCullFace(RL_CULL_FACE_FRONT);
-    rlEnableBackfaceCulling();
+    //rlSetCullFace(RL_CULL_FACE_FRONT);
+    //rlEnableBackfaceCulling();
     rlEnableDepthTest();
     rlEnableDepthMask();
       for (size_t i = 0; i < arrlen(entities); i++)
@@ -241,9 +280,8 @@ int main(void)
             Mesh *mesh = &ent->model.meshes[i];
             rlEnableShader(depth_shader.id);
             rlEnableVertexArray(mesh->vaoId);
-            rlSetUniformMatrix(depth_loc, lightSpaceMatrix);
             rlSetUniformMatrix(depth_shader.locs[SHADER_LOC_MATRIX_MODEL], ent->model.transform);
-
+            rlSetUniformMatrix(depth_loc, lightSpaceMatrix);
             rlDrawVertexArrayElements(0, mesh->triangleCount*3, 0);
 
             rlDisableVertexArray();
@@ -253,42 +291,60 @@ int main(void)
           }
         }
       }
-    rlSetCullFace(RL_CULL_FACE_BACK);
+    //rlSetCullFace(RL_CULL_FACE_BACK);
     EndTextureMode();
+    #else
+    BeginTextureMode(shadow_text);
+    rlClearScreenBuffers();
+    shadow_camera_begin_mode_3d(&shadow_cam);
+    rlEnableDepthMask();
+    rlDisableBackfaceCulling();
+    //rlSetCullFace(RL_CULL_FACE_FRONT);
+    SetShaderValueMatrix(depth_shader, depth_loc, MatrixMultiply(shadow_cam.view, shadow_cam.projection));
+    for (size_t i = 0; i < arrlen(entities); i++)
+    {
+      game_entity_t *ent = &entities[i];
+      for (int j = 0; j < ent->model.materialCount; j++)
+      {
+        ent->model.materials[j].shader = depth_shader;
+      }
+      if (ent->type == GAME_ENT_TYPE_ACTOR)
+      {
+        for (int i = 0; i < ent->model.meshCount; i++)
+        {
+          DrawModel(ent->model, (Vector3){0}, 1.0f, WHITE);
+        }
+      }
+      for (int j = 0; j < ent->model.materialCount; j++)
+      {
+        ent->model.materials[j].shader = mesh_phong;
+      }
+    }
+    //rlSetCullFace(RL_CULL_FACE_BACK);
+    rlEnableBackfaceCulling();
+    shadow_camera_end_mode_3d();
+    EndTextureMode();
+    #endif
     
     // Now Draw scene
     BeginDrawing();
 
 
     ClearBackground(RAYWHITE);
-    #if 0
-    game_camera_begin_mode_3d(&camera);
-    BeginShaderMode(terrain_shadow);
-    SetShaderValueTexture(deb, GetShaderLocation(deb, "depthMap"), shadow_text.depth);
-    DrawCube((Vector3){0}, 1024, 1, 1024, BLUE);
-    EndShaderMode();
-    game_camera_end_mode_3d();
 
-    #else
 
 
     game_camera_begin_mode_3d(&camera);
-
 
     // Draw Terrain
     //SetShaderValueTexture(terrain_shadow, shadow_loc, shadow_text.depth);
+    SetShaderValueMatrix(terrain_shadow, light_matrix, MatrixMultiply(shadow_cam.view, shadow_cam.projection));
     DrawMesh(terrain_mesh, terrain_material, terrain_matrix);
 
     // draw entities
     for (size_t i = 0; i < arrlen(entities); i++)
     {
       game_entity_t *ent = &entities[i];
-      #if 0
-      for (int j = 0; j < ent->model.materialCount; j++)
-      {
-          ent->model.materials[j].shader = mesh_phong;
-      }   
-      #endif
       if (ent->type == GAME_ENT_TYPE_ACTOR)
       {
         Color color_tint = WHITE;
@@ -301,10 +357,12 @@ int main(void)
             color_tint = RED;
         }
         DrawModel(ent->model, (Vector3){0}, 1.0f, color_tint);
+        //DrawCubeWires(Vector3Add(ent->dimensions_offset, Vector3Transform(Vector3Zero(), ent->model.transform)), ent->dimensions.x, ent->dimensions.y, ent->dimensions.z, RED);
         //entity_draw_actor(&ent->model, ent->team);
       }
     }
     // draw selection boxes
+    #if 1
     for (size_t i = 0; i < GAME_MAX_SELECTED; i++)
     {
       if (selected[i] >= 0)
@@ -322,10 +380,13 @@ int main(void)
         #endif
       }
     }
+    #endif
 
     #if 0
     DrawSphere(camera.camera_pos, 0.25f, RED);
     #endif
+
+
 
 
 
@@ -355,7 +416,7 @@ int main(void)
       DrawRectangleLines(box.x, box.y, box.width, box.height, GREEN);
     }
 
-
+    #if 1
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",
                         camera.camera_pos.x,
@@ -364,6 +425,7 @@ int main(void)
              10, 30, 20, WHITE);
     #endif
     EndDrawing();
+    
   }
 
   //--------------------------------------------------------------------------

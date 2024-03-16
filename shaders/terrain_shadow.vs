@@ -21,6 +21,8 @@ out vec4 fragColor;
 out vec4 fragPositionLightSpace;
 out vec3 fragNormal;
 
+const float normalOffset = 0.1;
+
 void main()
 {
     // Send vertex attributes to fragment shader
@@ -28,9 +30,7 @@ void main()
     fragColor = vertexColor;
     fragPosition = vec3(matModel * vec4(vertexPosition, 1.0));
     fragPositionLightSpace = lightSpaceMatrix * vec4(fragPosition, 1.0);
-    fragNormal = normalize(vec3(matNormal * vec4(vertexNormal, 1.0)));
-
-
+    fragNormal = vec3(matNormal * vec4(vertexNormal, 0.0));
 
     // Calculate final vertex position
     gl_Position = matProjection * matView * matModel * vec4(vertexPosition, 1.0);

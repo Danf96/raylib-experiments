@@ -133,6 +133,26 @@ Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
       nCounter += 18; // 6 vertex, 18 floats
     }
   }
+  #if 0
+  for (int i = 0; i < mesh.triangleCount; i++)
+  {
+    
+    int index1 = i * 3;
+    int index2 = index1 + 1;
+    int index3 = index1 + 2;
+    int vertPoint1 = mesh.indices[index1];
+    int vertPoint2 = mesh.indices[index2];
+    int vertPoint3 = mesh.indices[index3];
+    Vector3 v1 = (Vector3){mesh.vertices[vertPoint1], mesh.vertices[vertPoint1 + 1], mesh.vertices[vertPoint1 + 2]};
+    Vector3 v2 = (Vector3){mesh.vertices[vertPoint2], mesh.vertices[vertPoint2 + 1], mesh.vertices[vertPoint2 + 2]};
+    Vector3 v3 = (Vector3){mesh.vertices[vertPoint3], mesh.vertices[vertPoint3 + 1], mesh.vertices[vertPoint3 + 2]};
+
+    Vector3 edge1 = Vector3Subtract(v2, v1);
+    Vector3 edge2 = Vector3Subtract(v3, v1);
+
+    Vector3 normal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+  }
+  #endif
 
   UnloadImageColors(pixels); // Unload pixels color data
 

@@ -98,7 +98,6 @@ void scene_process_input(game_camera_t *camera, game_entity_t entities[], game_t
         {
           scene_remove_selected_all(selected);
           scene_add_selected(target_id, selected, false);
-          
         }
         else
         {
@@ -229,7 +228,6 @@ void scene_update_entities(game_camera_t *camera, game_entity_t entities[], game
           continue;
         }
       }
-      UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
     }
     else
     {
@@ -245,9 +243,12 @@ void scene_update_entities(game_camera_t *camera, game_entity_t entities[], game
           if (ent->attack_cooldown <= 0)
           {
             // begin attack, stop moving target, then check when attack anim is finished to do damage
-            //entity_resolve_attack(ent, entities);
+            ent->target_pos = (Vector2){entities[ent->target_id].position.x, entities[ent->target_id].position.z};
+            Vector2 move_vec = Vector2Subtract(ent->target_pos, (Vector2){ent->position.x, ent->position.z});
+            ent->rotation.y = (float)atan2(move_vec.x, move_vec.y);
             ent->state = GAME_ENT_STATE_ATTACKING | GAME_ENT_STATE_ACTION;
             entity_set_animation(ent, ROBO_PUNCH);
+            ent->is_dirty = true;
           }
           else
           {
@@ -294,12 +295,11 @@ void scene_update_entities(game_camera_t *camera, game_entity_t entities[], game
       }
       ent->anim_current_frame = (ent->anim_current_frame + 1) % ent->anim[ent->anim_index].frameCount;
     }
-    // note, UpdateModelAnimation treats all animations as looping
-    UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
     if (ent->is_dirty)
     {
       entity_dirty_update(old_pos, ent, terrain_map);
     }
+    UpdateModelAnimation(ent->model, ent->anim[ent->anim_index], ent->anim_current_frame);
   }
 }
 
@@ -430,12 +430,16 @@ void entity_resolve_attack(game_entity_t *ent, game_entity_t entities[])
   game_entity_t *target_ent = &entities[ent->target_id];
   target_ent->hit_points -= ent->attack_damage;
   ent->attack_cooldown = ent->attack_cooldown_max;
-  if (target_ent->hit_points <= 0)
+  if (target_ent->hit_points <= 0 && !(target_ent->state & GAME_ENT_STATE_DEAD))
   {
     target_ent->state = GAME_ENT_STATE_DEAD | GAME_ENT_STATE_ACTION;
     entity_set_animation(target_ent, ROBO_DIE);
     // leave attacking mode
-    ent->state ^= GAME_ENT_STATE_ATTACKING;
+    
+  }
+  if (target_ent->state & GAME_ENT_STATE_DEAD)
+  {
+    ent->state = GAME_ENT_STATE_IDLE;
   }
 }
 

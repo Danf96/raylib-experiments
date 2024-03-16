@@ -392,3 +392,68 @@ void game_camera_end_mode_3d(void)
 {
   EndMode3D();
 }
+void shadow_camera_calc(shadow_camera_t *camera)
+{
+  if (camera->ray_view_cam.projection == CAMERA_PERSPECTIVE)
+  {
+    camera->projection = MatrixPerspective(camera->ray_view_cam.fovy*DEG2RAD, 1.0, camera->near_plane, camera->far_plane);
+  }
+  else if (camera->ray_view_cam.projection == CAMERA_ORTHOGRAPHIC)
+  {
+    double top = camera->ray_view_cam.fovy / 2.0;
+    double right = top;
+
+    camera->projection = MatrixOrtho(-right, right, -top, top, camera->near_plane, camera->far_plane);
+  }
+      
+  camera->view = MatrixLookAt(camera->ray_view_cam.position, camera->ray_view_cam.target,
+                   camera->ray_view_cam.up);
+}
+
+void shadow_camera_begin_mode_3d(shadow_camera_t *camera)
+{
+  if (!camera)
+  {
+    return;
+  }
+  rlDrawRenderBatchActive();
+
+  rlMatrixMode(RL_PROJECTION);
+  rlPushMatrix();
+  rlLoadIdentity();
+
+  
+  rlMultMatrixf(MatrixToFloat(camera->projection));
+  rlMatrixMode(RL_MODELVIEW);
+  rlLoadIdentity();
+
+  rlMultMatrixf(MatrixToFloat(camera->view));
+
+  rlEnableDepthTest();
+}
+
+void shadow_camera_end_mode_3d(void)
+{
+  EndMode3D();
+}
+
+void shadow_camera_init(shadow_camera_t *camera, Vector3 position, float fovy, float near_plane, float far_plane, CameraProjection projection_type)
+{
+  if (!camera)
+  {
+    return;
+  }
+  camera->near_plane = near_plane;
+  camera->far_plane = far_plane;
+  camera->ray_view_cam = (Camera3D)
+  {
+    .fovy = fovy, 
+    .position = position, 
+    .up = (Vector3){0.f, 1.f, 0.f},
+    .projection = projection_type,
+  };
+
+  shadow_camera_calc(camera);
+}
+
+
