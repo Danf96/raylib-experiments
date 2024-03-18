@@ -48,7 +48,7 @@ void main()
 
     //const float shadow = 1.0;
     vec3 normal = normalize(fragNormal);
-    vec3 lightColor = vec3(1.0);
+    vec3 lightColor = vec3(0.3);
     // ambient
     vec3 ambient = 0.3 * lightColor;
     // diffuse

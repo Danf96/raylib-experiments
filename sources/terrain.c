@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include "terrain.h"
 #include "raymath.h"
+#include "stb_ds.h"
 // Modified version of RayLib heighmap generation
 Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
 {
@@ -56,7 +57,7 @@ Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
       mesh.vertices[vCounter + 7] =
           GRAY_VALUE(pixels[(x + 1) + z * mapX]) * y_scale;
       mesh.vertices[vCounter + 8] = (float)z;
-
+      
       // populate heightMap
       terrain_map->value[x * terrain_map->max_width + z] = GRAY_VALUE(pixels[x + z * mapX]) * y_scale;
       terrain_map->value[x * terrain_map->max_width + (z + 1)] = GRAY_VALUE(pixels[x + (z + 1) * mapX]) * y_scale;
@@ -100,6 +101,7 @@ Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
 
       // Fill normals array with data
       //--------------------------------------------------------------
+      #if 1
       for (int i = 0; i < 18; i += 9)
       {
         vA.x = mesh.vertices[nCounter + i];
@@ -129,29 +131,73 @@ Mesh terrain_init(Image height_image, game_terrain_map_t *terrain_map)
         mesh.normals[nCounter + i + 7] = vN.y;
         mesh.normals[nCounter + i + 8] = vN.z;
       }
-
+      #endif
       nCounter += 18; // 6 vertex, 18 floats
     }
   }
   #if 0
-  for (int i = 0; i < mesh.triangleCount; i++)
+  typedef struct {
+      Vector3 v1;
+      Vector3 v2;
+      Vector3 v3;
+    } Triangle;
+  Triangle *triList = NULL;
+  Vector3 *normalList = NULL;
+  const float smoothAngle = 90.f;
+  for (int i = 0; i < mesh.vertexCount; i++)
   {
-    
-    int index1 = i * 3;
-    int index2 = index1 + 1;
-    int index3 = index1 + 2;
-    int vertPoint1 = mesh.indices[index1];
-    int vertPoint2 = mesh.indices[index2];
-    int vertPoint3 = mesh.indices[index3];
-    Vector3 v1 = (Vector3){mesh.vertices[vertPoint1], mesh.vertices[vertPoint1 + 1], mesh.vertices[vertPoint1 + 2]};
-    Vector3 v2 = (Vector3){mesh.vertices[vertPoint2], mesh.vertices[vertPoint2 + 1], mesh.vertices[vertPoint2 + 2]};
-    Vector3 v3 = (Vector3){mesh.vertices[vertPoint3], mesh.vertices[vertPoint3 + 1], mesh.vertices[vertPoint3 + 2]};
+    Vector3 target_vertex = (Vector3){mesh.vertices[i * 3], mesh.vertices[i * 3 + 1], mesh.vertices[i * 3 + 2]};
+    // add triangle that shares vertex to list
+    // only get adjacent triangles
+    int row = i / mapX / 3;
+    int col = i % mapX;
+    int n = row * mapX + (col * 3);
 
-    Vector3 edge1 = Vector3Subtract(v2, v1);
-    Vector3 edge2 = Vector3Subtract(v3, v1);
-
-    Vector3 normal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+    for (int j = i ; j < mesh.triangleCount && j <= n; j++)
+    {
+      int index1 = j * 3 * 3;
+      int index2 = index1 + 3;
+      int index3 = index2 + 3;
+      Vector3 vA = (Vector3){mesh.vertices[index1], mesh.vertices[index1 + 1], mesh.vertices[index1 + 2]};
+      Vector3 vB = (Vector3){mesh.vertices[index2], mesh.vertices[index2 + 1], mesh.vertices[index2 + 2]};
+      Vector3 vC = (Vector3){mesh.vertices[index3], mesh.vertices[index3 + 1], mesh.vertices[index3 + 2]};
+      // does triangle share the target vertex?
+      // can't use indices, need to compare each vertex manually
+      if (Vector3Equals(target_vertex, vA) || Vector3Equals(target_vertex, vB) || Vector3Equals(target_vertex, vC))
+      {
+        arrput(triList, ((Triangle){vA, vB, vC}));
+      }
+    }
+    // go through every triangle in the list and calculate its normal
+    for (int j = 0; j < arrlen(triList); j++)
+    {
+      Triangle tri = triList[j];
+      Vector3 normal = Vector3Normalize(Vector3CrossProduct(Vector3Subtract(tri.v2, tri.v1), Vector3Subtract(tri.v3, tri.v1)));
+      arrput(normalList, normal);
+    }
+    Vector3 source_normal = normalList[0];
+    Vector3 dest_normal = source_normal;
+    for (int j = 1; j < arrlen(normalList); j++)
+    {
+      for (int n = j + 1; n < arrlen(normalList); n++)
+      {
+        Vector3 target_normal = normalList[n];
+        if (Vector3DotProduct(source_normal, target_normal) < cosf(smoothAngle * DEG2RAD))
+        {
+          dest_normal = Vector3Add(dest_normal, target_normal);
+        }
+      }
+    }
+    Vector3Normalize(dest_normal);
+    // add mesh normals here
+    mesh.normals[i * 3] = dest_normal.x;
+    mesh.normals[i * 3 + 1] = dest_normal.y;
+    mesh.normals[i * 3 + 2] = dest_normal.z;
+    arrsetlen(triList, 0);
+    arrsetlen(normalList, 0);
   }
+  arrfree(triList);
+  arrfree(normalList);
   #endif
 
   UnloadImageColors(pixels); // Unload pixels color data
@@ -236,9 +282,6 @@ Vector3 terrain_get_ray(Ray ray, game_terrain_map_t *terrain_map, float z_near, 
         t_delta = 0.1f;
         intersection = true;
       }
-      
-      // NOTE: does redundant calulcations currently, could move to a new function (currently broken when height is adjusted and camera is facing directly above unit)
-      // p.y = GetAdjustedHeight(p, terrainMap);
       else 
       {
         return terrain_convert_to_world_pos(p, terrain_map);

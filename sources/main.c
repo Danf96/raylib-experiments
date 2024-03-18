@@ -104,7 +104,7 @@ int main(void)
   terrain_shadow.locs[SHADER_LOC_VECTOR_VIEW] = GetShaderLocation(terrain_shadow, "viewPos");
   int light_matrix = GetShaderLocation(terrain_shadow, "lightSpaceMatrix");
   int sun_pos = GetShaderLocation(terrain_shadow, "lightPos");
-  #if 0
+    #if 0
   SetShaderValueMatrix(terrain_shadow, GetShaderLocation(terrain_shadow, "lightSpaceMatrix"), lightSpaceMatrix);
   rlDisableShader();
   #endif
@@ -208,7 +208,7 @@ int main(void)
   //testing
   //Shader deb = LoadShader("../shaders/debug_quad.vs", "../shaders/debug_quad.fs");
 
-  #if 1
+  #if 0
   // assign phong shader + shadow map to all entities
   for (int i = 0; i < arrlen(entities); i++)
   {
@@ -263,7 +263,7 @@ int main(void)
     // Initializes render texture for drawing
 
     // First update shadow map
-    #if 0
+#if 0
     BeginTextureMode(shadow_text);
     rlClearScreenBuffers();
     //rlSetCullFace(RL_CULL_FACE_FRONT);
@@ -324,7 +324,7 @@ int main(void)
     rlEnableBackfaceCulling();
     shadow_camera_end_mode_3d();
     EndTextureMode();
-    #endif
+#endif
     
     // Now Draw scene
     BeginDrawing();
@@ -416,7 +416,7 @@ int main(void)
       DrawRectangleLines(box.x, box.y, box.width, box.height, GREEN);
     }
 
-    #if 1
+    #if 0
     DrawFPS(10, 10);
     DrawText(TextFormat("%.4f\n%.4f\n%05.4f",
                         camera.camera_pos.x,
